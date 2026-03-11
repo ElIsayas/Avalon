@@ -70,7 +70,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      String errorMessage = 'Error al iniciar sesión';
+
+      // Provide specific error messages based on common authentication errors
+      if (e.toString().contains('Invalid login credentials')) {
+        errorMessage = 'Email o contraseña incorrectos';
+      } else if (e.toString().contains('User not found')) {
+        errorMessage = 'No existe una cuenta con este email';
+      } else if (e.toString().contains('Invalid password')) {
+        errorMessage = 'Contraseña incorrecta';
+      } else if (e.toString().contains('Email not confirmed')) {
+        errorMessage = 'Por favor, confirma tu email antes de iniciar sesión';
+      } else if (e.toString().contains('Too many requests')) {
+        errorMessage = 'Demasiados intentos. Por favor, espera unos minutos';
+      } else {
+        errorMessage = 'Email o contraseña incorrectos';
+      }
+
+      state = state.copyWith(isLoading: false, error: errorMessage);
     }
   }
 
@@ -93,7 +110,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      // Mostrar error real para debugging
+      print("ERROR REGISTER: $e");
+
+      String errorMessage = 'Error al crear cuenta';
+
+      // Provide specific error messages based on common registration errors
+      if (e.toString().contains('User already registered')) {
+        errorMessage = 'Ya existe una cuenta con este email';
+      } else if (e.toString().contains('duplicate key')) {
+        errorMessage = 'El número de documento ya está registrado';
+      } else if (e.toString().contains('weak_password')) {
+        errorMessage =
+            'La contraseña es muy débil. Debe tener al menos 6 caracteres';
+      } else if (e.toString().contains('invalid_email')) {
+        errorMessage = 'El email no es válido';
+      } else if (e.toString().contains('Too many requests')) {
+        errorMessage = 'Demasiados intentos. Por favor, espera unos minutos';
+      } else {
+        // Mostrar el error real en lugar del mensaje genérico
+        errorMessage = e.toString();
+      }
+
+      state = state.copyWith(isLoading: false, error: errorMessage);
     }
   }
 
@@ -115,13 +154,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _authService.resetPassword(email);
       state = state.copyWith(isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      String errorMessage = 'Error al restablecer contraseña';
+
+      // Provide specific error messages based on common password reset errors
+      if (e.toString().contains('User not found')) {
+        errorMessage = 'No existe una cuenta con este email';
+      } else if (e.toString().contains('invalid_email')) {
+        errorMessage = 'El email no es válido';
+      } else if (e.toString().contains('Too many requests')) {
+        errorMessage = 'Demasiados intentos. Por favor, espera unos minutos';
+      } else {
+        errorMessage = 'No se pudo enviar el email de restablecimiento';
+      }
+
+      state = state.copyWith(isLoading: false, error: errorMessage);
     }
   }
 
   // Limpiar errores
   void clearError() {
     state = state.copyWith(error: null);
+  }
+
+  // Establecer error personalizado
+  void setError(String error) {
+    state = state.copyWith(error: error);
   }
 
   // Verificar si está autenticado

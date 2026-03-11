@@ -43,33 +43,81 @@ class AuthService {
     String? clinicaId,
   }) async {
     try {
+      print("DEBUG: Iniciando signUp en Supabase Auth...");
+
       // 1. Crear usuario en Supabase Auth
       final response = await _client.auth.signUp(
         email: email,
         password: password,
       );
 
+      print(
+        "DEBUG: Respuesta de Auth: ${response.user != null ? 'Usuario creado' : 'Usuario null'}",
+      );
+      print("DEBUG: User ID: ${response.user?.id}");
+      print(
+        "DEBUG: Session: ${response.session != null ? 'Sesión activa' : 'Sin sesión'}",
+      );
+
       if (response.user != null) {
         // 2. Crear registro en nuestra tabla usuarios
-        final userData = await _client
-            .from('usuarios')
-            .insert({
-              'auth_user_id': response.user!.id,
-              'nombre': nombre,
-              'email': email,
-              'numero_documento': numeroDocumento,
-              'clinica_id': clinicaId,
-              'rol': 'psicologo', // Rol por defecto
-              'activo': true,
-            })
-            .select()
-            .single();
+        print("DEBUG: Insertando en tabla usuarios...");
+        print("DEBUG: auth_user_id: ${response.user!.id}");
+        print("DEBUG: nombre: $nombre");
+        print("DEBUG: email: $email");
+        print("DEBUG: numero_documento: $numeroDocumento");
+        print("DEBUG: clinica_id: $clinicaId");
 
-        return auth.AuthUser.fromMap({...response.user!.toJson(), ...userData});
+        try {
+          final userData = await _client
+              .from('usuarios')
+              .insert({
+                'auth_user_id': response.user!.id,
+                'nombre': nombre,
+                'email': email,
+                'numero_documento': numeroDocumento,
+                'clinica_id': clinicaId,
+                'rol': 'psicologo', // Rol por defecto
+                'activo': true,
+              })
+              .select()
+              .single();
+
+          print("DEBUG: Usuario insertado correctamente en tabla usuarios");
+          return auth.AuthUser.fromMap({
+            ...response.user!.toJson(),
+            ...userData,
+          });
+        } catch (dbError) {
+          print("DEBUG: Error al insertar en tabla usuarios: $dbError");
+
+          // Si falla la inserción en la BD, eliminar el usuario de Auth para mantener consistencia
+          try {
+            await _client.auth.admin.deleteUser(response.user!.id);
+            print("DEBUG: Usuario eliminado de Auth debido a error en BD");
+          } catch (deleteError) {
+            print("DEBUG: Error al eliminar usuario de Auth: $deleteError");
+          }
+
+          throw dbError;
+        }
       } else {
-        throw Exception('Error al registrar usuario');
+        throw Exception('Error al registrar usuario: respuesta nula');
       }
     } catch (e) {
+      print("DEBUG: Error en signUp: $e");
+      print("DEBUG: Error type: ${e.runtimeType}");
+
+      if (e is PostgrestException) {
+        print("DEBUG: Postgrest code: ${e.code}");
+        print("DEBUG: Postgrest message: ${e.message}");
+        print("DEBUG: Postgrest details: ${e.details}");
+        print("DEBUG: Postgrest hint: ${e.hint}");
+      } else if (e is AuthException) {
+        print("DEBUG: Auth code: ${e.code}");
+        print("DEBUG: Auth message: ${e.message}");
+      }
+
       throw _handleAuthError(e);
     }
   }
