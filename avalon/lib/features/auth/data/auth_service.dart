@@ -88,13 +88,18 @@ class AuthService {
     try {
       final user = _client.auth.currentUser;
       if (user != null) {
-        final userData = await _client
-            .from('usuarios')
-            .select('*')
-            .eq('auth_user_id', user.id)
-            .single();
+        try {
+          final userData = await _client
+              .from('usuarios')
+              .select('*')
+              .eq('auth_user_id', user.id)
+              .single();
 
-        return auth.AuthUser.fromMap({...user.toJson(), ...userData});
+          return auth.AuthUser.fromMap({...user.toJson(), ...userData});
+        } catch (e) {
+          // Si la tabla usuarios no existe o hay error, devolver usuario básico
+          return auth.AuthUser.fromMap(user.toJson());
+        }
       }
       return null;
     } catch (e) {
