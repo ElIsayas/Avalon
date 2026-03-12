@@ -40,15 +40,28 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
     print('✅ UI DEBUG: Validación del formulario exitosa');
 
     final nombre = _nombreController.text.trim();
-    final email = _emailController.text.trim().isEmpty ? null : _emailController.text.trim();
+    final email = _emailController.text.trim();
     final password = _passwordController.text;
+    
+    // Opcional: obtener device_id del dispositivo
+    String? deviceId;
+    try {
+      // Aquí podrías obtener el device_id real si lo necesitas
+      // deviceId = await _getDeviceId();
+      deviceId = null; // Por ahora null
+    } catch (e) {
+      print('⚠️ UI DEBUG: No se pudo obtener device_id: $e');
+      deviceId = null;
+    }
 
     print('📝 UI DEBUG: Datos del formulario - Nombre: $nombre, Email: $email, Password: ${password.isNotEmpty ? "***" : "EMPTY"}');
+    print('📱 UI DEBUG: Device ID: ${deviceId ?? "NO PROPORCIONADO"}');
 
     final success = await ref.read(userAuthProvider.notifier).createUser(
       nombre: nombre,
-      email: email ?? '',
+      email: email,
       password: password,
+      deviceId: deviceId,  // Pasar deviceId opcional
     );
 
     print('📊 UI DEBUG: Resultado del registro - Success: $success');
@@ -57,16 +70,12 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
       print('🎉 UI DEBUG: Registro exitoso, mostrando SnackBar y navegando');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Usuario creado exitosamente'),
+          content: Text('¡Usuario registrado exitosamente!'),
           backgroundColor: Colors.green,
         ),
       );
-      
-      // Navegar al login
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const AutoLoginScreen()),
-      );
+      // Navegar al login o dashboard
+      Navigator.pushReplacementNamed(context, '/login');
     } else {
       print('😞 UI DEBUG: Registro falló, error ya mostrado en UI');
     }

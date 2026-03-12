@@ -8,6 +8,7 @@ class AppUser {
   final String rol;
   final String? licenciaId;
   final bool activa;
+  final String? deviceId;  // Nuevo campo opcional
 
   AppUser({
     required this.id,
@@ -16,6 +17,7 @@ class AppUser {
     required this.rol,
     this.licenciaId,
     required this.activa,
+    this.deviceId,  // Nuevo campo opcional
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class AppUser {
       rol: json['rol']?.toString() ?? 'user',
       licenciaId: json['licencia_id']?.toString(),
       activa: json['activa'] as bool? ?? true,
+      deviceId: json['device_id']?.toString(),  // Nuevo campo opcional
     );
   }
 
@@ -37,6 +40,7 @@ class AppUser {
       'rol': rol,
       'licencia_id': licenciaId,
       'activa': activa,
+      'device_id': deviceId,  // Nuevo campo opcional
     };
   }
 }
@@ -79,6 +83,7 @@ class UserService {
     required String nombre,
     required String email,
     required String password,
+    String? deviceId,  // Opcional
     String rol = 'user',
   }) async {
     try {
@@ -86,8 +91,33 @@ class UserService {
       print('📧 Email: $email');
       print('👤 Nombre: $nombre');
       print('🔐 Rol: $rol');
+      print('📱 Device ID: ${deviceId ?? "NO PROPORCIONADO"}');
 
-      // Verificar si el email ya existe
+      // Primero, verificar si hay licencia disponible para este correo
+      print('🔍 DEBUG: Buscando licencia disponible para email: $email');
+      
+      // Buscar licencia activa sin asignar
+      final licensesResponse = await _client
+          .from('licencias')
+          .select()
+          .eq('email', email)
+          .eq('activa', true);
+
+      final licenses = licensesResponse as List;
+      print('📋 DEBUG: Licencias encontradas: ${licenses.length}');
+      
+      // Buscar licencia sin usuario_id asignado
+      final availableLicense = licenses.isEmpty ? null : 
+        licenses.firstWhere((license) => license['usuario_id'] == null);
+
+      print('📋 DEBUG: Licencia disponible: $availableLicense');
+
+      if (availableLicense == null) {
+        print('❌ ERROR: No hay licencia disponible para este email');
+        return AuthResponse.error('No se puede registrar: no hay una licencia disponible asociada a este correo. Contacte al administrador.');
+      }
+
+      // Verificar si el email ya existe en usuarios
       print('🔍 DEBUG: Verificando si email ya existe...');
       final existingUser = await _client
           .from('usuarios')
@@ -100,15 +130,17 @@ class UserService {
         return AuthResponse.error('El email ya está registrado');
       }
 
-      print('✅ DEBUG: Email disponible, creando usuario...');
+      print('✅ DEBUG: Licencia disponible y email único, creando usuario...');
       
-      // Crear usuario
+      // Crear usuario y vincular licencia
       final userData = {
         'nombre': nombre,
         'email': email,
         'password': password, // En producción, esto debería estar hasheado
         'rol': rol,
         'activa': true,
+        'licencia_id': availableLicense['id'], // Vincular licencia inmediatamente
+        if (deviceId != null) 'device_id': deviceId,  // Agregar device_id si se proporciona
       };
 
       print('📝 DEBUG: Datos a insertar: ${userData.keys.toList()}');
@@ -122,11 +154,23 @@ class UserService {
       print('📋 DEBUG: Respuesta de Supabase: $response');
 
       if (response != null) {
+        // Actualizar licencia para marcarla como asignada
+        await _client
+            .from('licencias')
+            .update({
+              'usuario_id': response['id'],
+              'fecha_activacion': DateTime.now().toIso8601String(),
+            })
+            .eq('id', availableLicense['id']);
+
+        print('✅ SUCCESS: Licencia asignada a usuario');
+        print('📋 DEBUG: Licencia actualizada - Usuario ID: ${response['id']}, Licencia ID: ${availableLicense['id']}');
+        
         final user = AppUser.fromJson(response);
         print('✅ SUCCESS: Usuario creado con ID: ${user.id}');
         return AuthResponse.success(user);
       } else {
-        print('❌ ERROR: Respuesta nula de Supabase');
+        print('❌ ERROR: Error al crear el usuario');
         return AuthResponse.error('Error al crear el usuario');
       }
     } catch (e) {
@@ -138,7 +182,7 @@ class UserService {
 
   /// Autenticar usuario
   Future<AuthResponse> authenticateUser({
-    required String email,
+    required String email,  // Cambiado de username a email
     required String password,
   }) async {
     try {
@@ -160,11 +204,11 @@ class UserService {
 
       if (userData != null) {
         final user = AppUser.fromJson(userData);
-        print('✅ SUCCESS: Usuario encontrado - ID: ${user.id}, Nombre: ${user.nombre}, Rol: ${user.rol}');
+        print('✅ SUCCESS: Usuario encontrado - ID: ${user.id}, Email: ${user.email}');
         
         // Verificar si tiene licencia activa
         print('🔍 DEBUG: Verificando licencia activa...');
-        final hasActiveLicense = await _checkActiveLicense(user.id);
+        final hasActiveLicense = await checkActiveLicense(user.id);
         print('📋 DEBUG: ¿Tiene licencia activa? $hasActiveLicense');
         
         if (!hasActiveLicense) {
@@ -200,7 +244,7 @@ class UserService {
 
       print('📋 DEBUG: Datos de licencia: $licenseData');
       
-      if (licenseData != null) {
+      if (licenseData == null) {
         print('❌ DEBUG: No se encontró licencia activa');
         return false;
       }
@@ -222,6 +266,41 @@ class UserService {
       return true;
     } catch (e) {
       print('💥 CATCH ERROR: Error verificando licencia: $e');
+      return false;
+    }
+  }
+
+  /// Asignar licencia existente a usuario
+  Future<bool> assignExistingLicenseToUser({
+    required String userId,
+    required String licenseKey,
+  }) async {
+    try {
+      print('🔧 DEBUG: Asignando licencia existente $licenseKey a usuario $userId');
+      
+      // Buscar licencia existente
+      final licenseData = await _client
+          .from('licencias')
+          .select()
+          .eq('license_key', licenseKey)
+          .eq('activa', true)
+          .maybeSingle();
+
+      if (licenseData == null) {
+        print('❌ DEBUG: Licencia no existe o no está activa');
+        return false;
+      }
+
+      // Asignar licencia al usuario
+      await _client
+          .from('usuarios')
+          .update({'licencia_id': licenseData['id']})
+          .eq('id', userId);
+
+      print('✅ DEBUG: Licencia existente asignada exitosamente');
+      return true;
+    } catch (e) {
+      print('💥 CATCH ERROR: Error asignando licencia existente: $e');
       return false;
     }
   }

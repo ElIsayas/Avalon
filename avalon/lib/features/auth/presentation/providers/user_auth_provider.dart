@@ -42,19 +42,6 @@ class UserAuthState {
   String get displayName => user?.nombre ?? 'Usuario';
   String get userEmail => user?.email ?? '';
   String get userRole => user?.rol ?? 'user';
-  
-  /// Verificar si el usuario tiene licencia activa
-  Future<bool> checkUserLicense() async {
-    if (user == null) return false;
-    
-    try {
-      print('🔍 PROVIDER DEBUG: Verificando licencia para usuario ${user!.id}');
-      return await _userService.checkActiveLicense(user!.id);
-    } catch (e) {
-      print('💥 PROVIDER CATCH: Error verificando licencia: $e');
-      return false;
-    }
-  }
 }
 
 /// Provider del servicio de usuarios
@@ -78,12 +65,25 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
 
   UserAuthNotifier(this._userService) : super(UserAuthState());
 
+  /// Verificar si el usuario tiene licencia activa
+  Future<bool> checkUserLicense() async {
+    if (state.user == null) return false;
+    
+    try {
+      print('🔍 PROVIDER DEBUG: Verificando licencia para usuario ${state.user!.id}');
+      return await _userService.checkActiveLicense(state.user!.id);
+    } catch (e) {
+      print('💥 PROVIDER CATCH: Error verificando licencia: $e');
+      return false;
+    }
+  }
+
   /// Crear usuario
   Future<bool> createUser({
     required String nombre,
     required String email,
     required String password,
-    String rol = 'user',
+    String? deviceId,  // Opcional
   }) async {
     print('🔄 PROVIDER DEBUG: Iniciando createUser...');
     state = state.copyWith(isLoading: true, error: null);
@@ -93,11 +93,11 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
         nombre: nombre,
         email: email,
         password: password,
-        rol: rol,
+        deviceId: deviceId,  // Pasar deviceId opcional
       );
 
       print('📊 PROVIDER DEBUG: Respuesta del servicio - Success: ${response.success}');
-      
+
       if (response.success && response.user != null) {
         print('✅ PROVIDER SUCCESS: Usuario creado exitosamente');
         print('👤 PROVIDER USER: ID=${response.user!.id}, Nombre=${response.user!.nombre}, Email=${response.user!.email}');
@@ -129,7 +129,7 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
 
   /// Iniciar sesión
   Future<bool> signIn({
-    required String email,
+    required String email,  // Cambiado de username a email
     required String password,
   }) async {
     print('🔄 PROVIDER DEBUG: Iniciando signIn...');
@@ -137,7 +137,7 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
 
     try {
       final response = await _userService.authenticateUser(
-        email: email,
+        email: email,  // Parámetro corregido
         password: password,
       );
 
@@ -145,7 +145,7 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
 
       if (response.success && response.user != null) {
         print('✅ PROVIDER SUCCESS: Login exitoso');
-        print('👤 PROVIDER USER: ID=${response.user!.id}, Nombre=${response.user!.nombre}, Email=${response.user!.email}, Rol=${response.user!.rol}');
+        print('👤 PROVIDER USER: ID=${response.user!.id}, Email=${response.user!.email}');
         
         state = state.copyWith(
           isLoading: false,
@@ -212,9 +212,9 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
     if (state.user == null) return false;
 
     try {
-      final success = await _userService.assignLicenseToUser(
-        state.user!.id,
-        licenseId,
+      final success = await _userService.assignExistingLicenseToUser(
+        userId: state.user!.id,
+        licenseKey: licenseId,
       );
 
       if (success) {
