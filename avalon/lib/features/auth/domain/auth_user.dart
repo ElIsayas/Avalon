@@ -4,6 +4,8 @@ class AuthUser {
   final String? nombre;
   final String? numeroDocumento;
   final String? clinicaId;
+  final String? clinicaNombre;
+  final String? dispositivoId;
   final String? rol;
   final bool? activo;
   final DateTime? fechaRegistro;
@@ -14,6 +16,8 @@ class AuthUser {
     this.nombre,
     this.numeroDocumento,
     this.clinicaId,
+    this.clinicaNombre,
+    this.dispositivoId,
     this.rol,
     this.activo,
     this.fechaRegistro,
@@ -26,6 +30,8 @@ class AuthUser {
       nombre: map['nombre']?.toString(),
       numeroDocumento: map['numero_documento']?.toString(),
       clinicaId: map['clinica_id']?.toString(),
+      clinicaNombre: map['clinica_nombre']?.toString(),
+      dispositivoId: map['dispositivo_id']?.toString(),
       rol: map['rol']?.toString(),
       activo: map['activo'] as bool?,
       fechaRegistro: map['fecha_registro'] != null 
@@ -41,6 +47,8 @@ class AuthUser {
       'nombre': nombre,
       'numero_documento': numeroDocumento,
       'clinica_id': clinicaId,
+      'clinica_nombre': clinicaNombre,
+      'dispositivo_id': dispositivoId,
       'rol': rol,
       'activo': activo,
       'fecha_registro': fechaRegistro?.toIso8601String(),

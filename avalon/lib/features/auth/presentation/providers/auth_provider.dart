@@ -91,13 +91,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // Registrar usuario
+  // Registrar usuario con licencia
   Future<void> signUp({
     required String email,
     required String password,
     required String nombre,
-    required String numeroDocumento,
-    String? clinicaId,
+    required String licenseKey,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -105,8 +104,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         email: email,
         password: password,
         nombre: nombre,
-        numeroDocumento: numeroDocumento,
-        clinicaId: clinicaId,
+        licenseKey: licenseKey,
       );
       state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
@@ -127,6 +125,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
         errorMessage = 'El email no es válido';
       } else if (e.toString().contains('Too many requests')) {
         errorMessage = 'Demasiados intentos. Por favor, espera unos minutos';
+      } else if (e.toString().contains('Licencia inválida')) {
+        errorMessage = 'La licencia ingresada no es válida';
+      } else if (e.toString().contains('Licencia no activa')) {
+        errorMessage = 'La licencia no está activa. Contacte al administrador';
+      } else if (e.toString().contains('Licencia no vinculada a clínica')) {
+        errorMessage = 'La licencia no está vinculada a ninguna clínica';
+      } else if (e.toString().contains('Límite de usuarios alcanzado')) {
+        errorMessage = e.toString(); // Mostrar el mensaje completo con el límite
+      } else if (e.toString().contains('Usuario desactivado')) {
+        errorMessage = 'Usuario desactivado. Contacte al administrador';
+      } else if (e.toString().contains('Clínica no encontrada')) {
+        errorMessage = 'Clínica no encontrada. Contacte al administrador';
+      } else if (e.toString().contains('Clínica desactivada')) {
+        errorMessage = 'Clínica desactivada. Contacte al administrador';
+      } else if (e.toString().contains('suscripción activa')) {
+        errorMessage = 'La clínica no tiene una suscripción activa';
+      } else if (e.toString().contains('vinculado a ninguna clínica')) {
+        errorMessage = 'El usuario no está vinculado a ninguna clínica. Contacte al administrador';
       } else {
         // Mostrar el error real en lugar del mensaje genérico
         errorMessage = e.toString();
