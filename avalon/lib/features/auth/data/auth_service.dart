@@ -99,7 +99,7 @@ class AuthService {
             print("DEBUG: Error al eliminar usuario de Auth: $deleteError");
           }
 
-          throw dbError;
+          rethrow;
         }
       } else {
         throw Exception('Error al registrar usuario: respuesta nula');

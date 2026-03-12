@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/supabase/supabase.dart';
+import '../../../../core/constants/app_constants.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -20,6 +22,11 @@ class DashboardScreen extends ConsumerWidget {
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            onPressed: () => _showDebugDialog(context),
+            icon: const Icon(Icons.bug_report),
+            tooltip: 'Debug Supabase Auth',
+          ),
           IconButton(
             onPressed: () async {
               await ref.read(authProvider.notifier).signOut();
@@ -273,6 +280,164 @@ class DashboardScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _showDebugDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Debug - Supabase Auth',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'URL Supabase:',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              ),
+              Text(
+                AppConstants.supabaseUrl,
+                style: GoogleFonts.poppins(color: Colors.grey[600]),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'Tabla Usuarios:',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              ),
+              Text(
+                AppConstants.tableUsuarios,
+                style: GoogleFonts.poppins(color: Colors.grey[600]),
+              ),
+              SizedBox(height: 16.h),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _testAuthCreation(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text('Test Creación Auth'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _testAuthCreation(BuildContext context) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final email = 'test${DateTime.now().millisecondsSinceEpoch}@clinica.com';
+    final password = '123456';
+    
+    try {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Probando creación de usuario en Auth...'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+
+      // 1. Crear usuario en Auth
+      final authResponse = await supabase.auth.signUp(
+        email: email,
+        password: password,
+      );
+
+      if (authResponse.user != null) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('✅ Usuario creado en Auth: ${authResponse.user!.id}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // 2. Verificar con admin API
+        try {
+          final verification = await supabase.auth.admin.getUserById(authResponse.user!.id);
+          if (verification.user != null) {
+            scaffoldMessenger.showSnackBar(
+              SnackBar(
+                content: Text('✅ Verificación admin exitosa'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else {
+            scaffoldMessenger.showSnackBar(
+              SnackBar(
+                content: Text('❌ Usuario no encontrado en verificación admin'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        } catch (e) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('❌ Error en verificación admin: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+
+        // 3. Intentar crear en tabla usuarios
+        try {
+          final userData = await supabase
+              .from(AppConstants.tableUsuarios)
+              .insert({
+                'auth_user_id': authResponse.user!.id,
+                'clinica_id': 'yuse-clinica-id',
+                'nombre': 'Test User',
+                'email': email,
+                'rol': 'psicologo',
+                'activo': true,
+              })
+              .select()
+              .single();
+
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('✅ Usuario creado en tabla usuarios: ${userData['id']}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } catch (e) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('❌ Error creando en tabla usuarios: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+
+      } else {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('❌ Falló creación en Auth: user es null'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('❌ Error general: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildActivityItem({
