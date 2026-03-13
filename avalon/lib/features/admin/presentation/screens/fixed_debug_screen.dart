@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/supabase/supabase.dart';
 import '../../../../core/constants/app_constants.dart';
 
@@ -114,10 +113,7 @@ class _FixedDebugScreenState extends State<FixedDebugScreen> {
         }
         
       } else {
-        addLog('   ❌ Falló creación en Auth');
-        if (authResponse.error?.message != null) {
-          addLog('   Error: ${authResponse.error!.message}');
-        }
+        addLog('   ❌ Falló creación en Auth - sin usuario creado');
       }
       
     } catch (e) {
@@ -181,7 +177,7 @@ class _FixedDebugScreenState extends State<FixedDebugScreen> {
                 borderRadius: BorderRadius.circular(12.r),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: Offset(0, 2),
                   ),
@@ -215,10 +211,10 @@ class _FixedDebugScreenState extends State<FixedDebugScreen> {
                   SizedBox(height: 12.h),
                   TextField(
                     controller: _passwordController,
+                    obscureText: true,
                     decoration: const InputDecoration(
                       labelText: 'Contraseña',
                       border: OutlineInputBorder(),
-                      obscureText: true,
                     ),
                   ),
                   SizedBox(height: 16.h),

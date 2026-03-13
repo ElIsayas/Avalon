@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/supabase/supabase.dart';
 import '../../../../core/constants/app_constants.dart';
 
@@ -13,8 +12,6 @@ class MinimalDebugScreen extends StatefulWidget {
 }
 
 class _MinimalDebugScreenState extends State<MinimalDebugScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   List<String> logs = [];
   bool isLoading = false;
 
@@ -38,7 +35,7 @@ class _MinimalDebugScreenState extends State<MinimalDebugScreen> {
       
       // 1. Test básico de conexión
       addLog('1. Probando conexión básica...');
-      final testConnection = await supabase
+      await supabase
           .from(AppConstants.tableUsuarios)
           .select('count')
           .limit(1);
@@ -79,10 +76,7 @@ class _MinimalDebugScreenState extends State<MinimalDebugScreen> {
         }
         
       } else {
-        addLog('   ❌ Falló creación en Auth');
-        if (authResponse.error?.message != null) {
-          addLog('   Error: ${authResponse.error!.message}');
-        }
+        addLog('   ❌ Falló creación en Auth - sin usuario creado');
       }
       
     } catch (e) {
@@ -132,7 +126,7 @@ class _MinimalDebugScreenState extends State<MinimalDebugScreen> {
                 borderRadius: BorderRadius.circular(12.r),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: Offset(0, 2),
                   ),

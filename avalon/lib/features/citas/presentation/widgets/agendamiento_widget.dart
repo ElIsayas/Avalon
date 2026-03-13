@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../domain/entities/cita.dart';
-import '../providers/cita_provider.dart';
 
 class AgendamientoWidget extends ConsumerStatefulWidget {
   final String psicologoId;
@@ -49,7 +48,7 @@ class _AgendamientoWidgetState extends ConsumerState<AgendamientoWidget> {
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -254,7 +253,7 @@ class _AgendamientoWidgetState extends ConsumerState<AgendamientoWidget> {
         children: [
           // Duración
           DropdownButtonFormField<Duration>(
-            value: _duracionSeleccionada,
+            initialValue: _duracionSeleccionada,
             decoration: InputDecoration(
               labelText: 'Duración',
               prefixIcon: Icon(Icons.timer),
@@ -278,7 +277,7 @@ class _AgendamientoWidgetState extends ConsumerState<AgendamientoWidget> {
           
           // Tipo de cita
           DropdownButtonFormField<TipoCita>(
-            value: _tipoSeleccionado,
+            initialValue: _tipoSeleccionado,
             decoration: InputDecoration(
               labelText: 'Tipo de Cita',
               prefixIcon: Icon(Icons.category),
@@ -307,7 +306,7 @@ class _AgendamientoWidgetState extends ConsumerState<AgendamientoWidget> {
             ),
             subtitle: Text('Habilitar videoconferencia'),
             value: _esOnline,
-            activeColor: Color(0xFF3498DB),
+            activeThumbColor: Color(0xFF3498DB),
             onChanged: (value) {
               setState(() {
                 _esOnline = value;

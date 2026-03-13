@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/paciente_provider.dart';
 import 'paciente_card.dart';
+import '../../../../models/paciente_model.dart';
 
 class PacienteSearchDelegate extends SearchDelegate<String> {
   final WidgetRef ref;
@@ -103,8 +104,8 @@ class PacienteSearchDelegate extends SearchDelegate<String> {
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundColor: paciente.activo 
-                        ? Colors.green.withOpacity(0.2) 
-                        : Colors.grey.withOpacity(0.2),
+                        ? Colors.green.withValues(alpha:0.2) 
+                        : Colors.grey.withValues(alpha:0.2),
                     child: Icon(
                       Icons.person,
                       color: paciente.activo ? Colors.green : Colors.grey,
@@ -119,8 +120,8 @@ class PacienteSearchDelegate extends SearchDelegate<String> {
                     padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
                       color: paciente.activo 
-                          ? Colors.green.withOpacity(0.2) 
-                          : Colors.red.withOpacity(0.2),
+                          ? Colors.green.withValues(alpha:0.2) 
+                          : Colors.red.withValues(alpha:0.2),
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Text(
@@ -260,8 +261,8 @@ class PacienteSearchDelegate extends SearchDelegate<String> {
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: paciente.activo 
-                          ? Colors.green.withOpacity(0.2) 
-                          : Colors.grey.withOpacity(0.2),
+                          ? Colors.green.withValues(alpha:0.2) 
+                          : Colors.grey.withValues(alpha:0.2),
                       child: Icon(
                         Icons.person,
                         color: paciente.activo ? Colors.green : Colors.grey,
@@ -276,8 +277,8 @@ class PacienteSearchDelegate extends SearchDelegate<String> {
                       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: paciente.activo 
-                            ? Colors.green.withOpacity(0.2) 
-                            : Colors.red.withOpacity(0.2),
+                            ? Colors.green.withValues(alpha:0.2) 
+                            : Colors.red.withValues(alpha:0.2),
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: Text(

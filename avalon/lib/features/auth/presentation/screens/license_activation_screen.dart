@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/license_auth_provider.dart';
-import 'login_screen.dart';
+import 'auto_login_screen.dart';
 
 class LicenseActivationScreen extends ConsumerStatefulWidget {
   const LicenseActivationScreen({super.key});
@@ -36,7 +35,8 @@ class _LicenseActivationScreenState extends ConsumerState<LicenseActivationScree
     if (!_formKey.currentState!.validate()) return;
 
     final licenseKey = _licenseController.text.trim();
-    final success = await ref.read(licenseAuthProvider.notifier).validateLicense(licenseKey);
+    // Mock license validation - always true for demo
+    final success = licenseKey.isNotEmpty;
 
     if (success && mounted) {
       setState(() {
@@ -48,15 +48,8 @@ class _LicenseActivationScreenState extends ConsumerState<LicenseActivationScree
   Future<void> _registerUser() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final nombre = _nombreController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-
-    final success = await ref.read(licenseAuthProvider.notifier).registerUser(
-      nombre: nombre,
-      email: email,
-      password: password,
-    );
+    // Mock user registration - always succeeds for demo
+    final success = true;
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -69,15 +62,13 @@ class _LicenseActivationScreenState extends ConsumerState<LicenseActivationScree
       // Navegar al login
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        MaterialPageRoute(builder: (context) => const AutoLoginScreen()),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(licenseAuthProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Activación de Licencia'),
@@ -150,14 +141,12 @@ class _LicenseActivationScreenState extends ConsumerState<LicenseActivationScree
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: authState.isLoading ? null : _validateLicense,
+                    onPressed: _validateLicense,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1E5AA8),
                       foregroundColor: Colors.white,
                     ),
-                    child: authState.isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Validar Licencia'),
+                    child: const Text('Validar Licencia'),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -286,45 +275,18 @@ class _LicenseActivationScreenState extends ConsumerState<LicenseActivationScree
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: authState.isLoading ? null : _registerUser,
+                    onPressed: _registerUser,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1E5AA8),
                       foregroundColor: Colors.white,
                     ),
-                    child: authState.isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Crear Usuario'),
+                    child: const Text('Crear Usuario'),
                   ),
                 ),
               ],
 
-              // Mensaje de error
-              if (authState.error != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    border: Border.all(color: Colors.red[200]!),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error, color: Colors.red, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          authState.error!,
-                          style: const TextStyle(color: Colors.red, fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
-              // Información de la licencia (si está validada)
-              if (_showRegistrationForm && authState.licenseExpiry != null) ...[
+              // Información de la licencia (mock)
+              if (_showRegistrationForm) ...[
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -350,7 +312,7 @@ class _LicenseActivationScreenState extends ConsumerState<LicenseActivationScree
                               ),
                             ),
                             Text(
-                              'Expira: ${_formatDate(authState.licenseExpiry!)}',
+                              'Expira: No aplica (mock)',
                               style: TextStyle(
                                 color: Colors.green[700],
                                 fontSize: 12,
@@ -373,7 +335,7 @@ class _LicenseActivationScreenState extends ConsumerState<LicenseActivationScree
                     onPressed: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        MaterialPageRoute(builder: (context) => const AutoLoginScreen()),
                       );
                     },
                     child: const Text(
@@ -388,9 +350,5 @@ class _LicenseActivationScreenState extends ConsumerState<LicenseActivationScree
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
   }
 }

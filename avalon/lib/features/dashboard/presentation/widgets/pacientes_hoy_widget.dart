@@ -25,7 +25,7 @@ class PacientesHoyWidget extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.withOpacity(0.3),
+            color: Colors.purple.withValues(alpha:0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -71,7 +71,7 @@ class PacientesHoyWidget extends ConsumerWidget {
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha:0.2),
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Text(
@@ -162,10 +162,10 @@ class PacientesHoyWidget extends ConsumerWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: Colors.white.withValues(alpha:0.15),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.white.withOpacity(0.3),
+          color: Colors.white.withValues(alpha:0.3),
           width: 1,
         ),
       ),
@@ -177,7 +177,7 @@ class PacientesHoyWidget extends ConsumerWidget {
             children: [
               CircleAvatar(
                 radius: 20.r,
-                backgroundColor: Colors.white.withOpacity(0.3),
+                backgroundColor: Colors.white.withValues(alpha:0.3),
                 child: Icon(
                   Icons.person,
                   color: Colors.white,
@@ -214,19 +214,19 @@ class PacientesHoyWidget extends ConsumerWidget {
           // Lista de citas del paciente
           if (citas.isNotEmpty) ...[
             SizedBox(height: 12.h),
-            ...citas.map((cita) => _buildCitaItem(cita)).toList(),
+            ...citas.map((cita) => _buildCitaItem(cita)),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildCitaItem(cita) {
+  Widget _buildCitaItem(dynamic cita) {
     return Container(
       margin: EdgeInsets.only(top: 8.h),
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(8.r),
       ),
       child: Row(
@@ -262,7 +262,7 @@ class PacientesHoyWidget extends ConsumerWidget {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
             decoration: BoxDecoration(
-              color: cita.estado.color.withOpacity(0.3),
+              color: cita.estado.color.withValues(alpha:0.3),
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Text(

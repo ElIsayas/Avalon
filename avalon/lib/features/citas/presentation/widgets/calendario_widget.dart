@@ -44,7 +44,7 @@ class _CalendarioWidgetState extends State<CalendarioWidget> {
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -186,7 +186,7 @@ class _CalendarioWidgetState extends State<CalendarioWidget> {
       child: Container(
         margin: EdgeInsets.all(2.r),
         decoration: BoxDecoration(
-          color: esSeleccionado ? Color(0xFF3498DB).withOpacity(0.2) : null,
+          color: esSeleccionado ? Color(0xFF3498DB).withValues(alpha: 0.2) : null,
           borderRadius: BorderRadius.circular(8.r),
           border: esHoy
               ? Border.all(color: Color(0xFF3498DB), width: 2)

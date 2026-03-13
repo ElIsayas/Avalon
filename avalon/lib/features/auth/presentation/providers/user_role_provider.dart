@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_provider.dart';
+import '../../../../core/utils/logger.dart';
 
 // Provider para verificar si el usuario es administrador
 final isAdminProvider = Provider<bool>((ref) {
@@ -25,6 +26,11 @@ final userRoleInfoProvider = Provider<Map<String, dynamic>>((ref) {
   final authState = ref.watch(authProvider);
   final user = authState.user;
   
+  Logger.debug('🔐 ROLE DEBUG: User object: $user', 'UserRoleProvider');
+  Logger.debug('🔐 ROLE DEBUG: User role: ${user?.rol}', 'UserRoleProvider');
+  Logger.debug('🔐 ROLE DEBUG: Is admin: ${user?.isAdministrador}', 'UserRoleProvider');
+  Logger.debug('🔐 ROLE DEBUG: Is psicologo: ${user?.isPsicologo}', 'UserRoleProvider');
+  
   if (user == null) {
     return {
       'role': 'unknown',
@@ -37,9 +43,10 @@ final userRoleInfoProvider = Provider<Map<String, dynamic>>((ref) {
   }
 
   switch (user.rol) {
+    case 'admin':
     case 'administrador':
       return {
-        'role': 'administrador',
+        'role': user.rol, // Keep the original role
         'displayName': 'Administrador',
         'isAdmin': true,
         'isPsicologo': false,

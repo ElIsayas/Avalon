@@ -44,7 +44,6 @@ dependencies:
   # UI
   google_fonts: ^6.2.1
   flutter_screenutil: ^5.9.0
-  flutter_svg: ^2.0.10+1
   
   # Secure Storage
   flutter_secure_storage: ^9.0.0

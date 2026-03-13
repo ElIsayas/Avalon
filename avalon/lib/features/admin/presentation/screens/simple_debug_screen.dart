@@ -34,7 +34,7 @@ class _SimpleDebugScreenState extends State<SimpleDebugScreen> {
     
     try {
       addLog('URL Supabase: ${AppConstants.supabaseUrl}');
-      addLog('Cliente Supabase: ${supabase != null ? "OK" : "NULL"}');
+      addLog('Cliente Supabase: OK');
       
       // Test básico: intentar obtener la lista de usuarios
       addLog('Intentando consultar tabla usuarios...');
@@ -256,9 +256,9 @@ class _SimpleDebugScreenState extends State<SimpleDebugScreen> {
         addLog('❌ Error creando en tabla usuarios: $e');
         
         // Intentar rollback: eliminar de Auth
-        if (authResponse?.user != null) {
+        if (authResponse.user != null) {
           try {
-            await supabase.auth.admin.deleteUser(authResponse!.user!.id);
+            await supabase.auth.admin.deleteUser(authResponse.user!.id);
             addLog('🔄 Rollback: Usuario eliminado de Auth');
           } catch (deleteError) {
             addLog('❌ Error en rollback: $deleteError');
@@ -308,7 +308,7 @@ class _SimpleDebugScreenState extends State<SimpleDebugScreen> {
                 borderRadius: BorderRadius.circular(12.r),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),

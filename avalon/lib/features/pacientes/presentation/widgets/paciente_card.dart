@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../domain/entities/paciente.dart';
+import '../../../../models/paciente_model.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PacienteCard extends StatelessWidget {
+class PacienteCard extends ConsumerWidget {
   final Paciente paciente;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -20,7 +22,12 @@ class PacienteCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    
+    // Determinar si el paciente fue creado por el usuario actual
+    final esCreadoPorUsuarioActual = paciente.creadoPor == authState.user?.id;
+    
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
@@ -28,7 +35,7 @@ class PacienteCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha:0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -47,8 +54,8 @@ class PacienteCard extends StatelessWidget {
                   CircleAvatar(
                     radius: 24.r,
                     backgroundColor: paciente.activo 
-                        ? Colors.green.withOpacity(0.2) 
-                        : Colors.grey.withOpacity(0.2),
+                        ? Colors.green.withValues(alpha:0.2) 
+                        : Colors.grey.withValues(alpha:0.2),
                     child: Icon(
                       Icons.person,
                       color: paciente.activo ? Colors.green : Colors.grey,
@@ -80,8 +87,8 @@ class PacienteCard extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: paciente.activo 
-                                    ? Colors.green.withOpacity(0.2) 
-                                    : Colors.red.withOpacity(0.2),
+                                    ? Colors.green.withValues(alpha:0.2) 
+                                    : Colors.red.withValues(alpha:0.2),
                                 borderRadius: BorderRadius.circular(12.r),
                               ),
                               child: Text(
@@ -109,6 +116,77 @@ class PacienteCard extends StatelessWidget {
                   ),
                 ],
               ),
+              SizedBox(height: 8.h),
+              
+              // Información de creación
+              if (paciente.creadoPor != null) ...[
+                SizedBox(height: 8.h),
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    color: esCreadoPorUsuarioActual 
+                        ? Colors.blue.withValues(alpha:0.08) 
+                        : Colors.grey.withValues(alpha:0.05),
+                    borderRadius: BorderRadius.circular(8.r),
+                    border: Border.all(
+                      color: esCreadoPorUsuarioActual 
+                          ? Colors.blue.withValues(alpha:0.2) 
+                          : Colors.grey.withValues(alpha:0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.person_add_outlined,
+                        size: 16.sp,
+                        color: esCreadoPorUsuarioActual ? Colors.blue[600] : Colors.grey[600],
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              esCreadoPorUsuarioActual ? 'Creado por ti' : 'Creado por otro profesional',
+                              style: GoogleFonts.inter(
+                                fontSize: 12.sp,
+                                color: esCreadoPorUsuarioActual ? Colors.blue[600] : Colors.grey[600],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (!esCreadoPorUsuarioActual)
+                              Text(
+                                'ID: ${paciente.creadoPor!.substring(0, 8).toUpperCase()}...',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10.sp,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (esCreadoPorUsuarioActual)
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[600],
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          child: Text(
+                            'PROPIO',
+                            style: GoogleFonts.inter(
+                              fontSize: 8.sp,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+              
               if (paciente.telefono != null || paciente.direccion != null) ...[
                 SizedBox(height: 12.h),
                 Container(

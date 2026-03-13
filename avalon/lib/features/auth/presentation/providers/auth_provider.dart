@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/auth_service.dart';
 import '../../domain/auth_user.dart' as auth;
 import '../../../../core/supabase/supabase.dart';
+import '../../../../core/utils/logger.dart';
 
 // Estado de autenticación
 class AuthState {
@@ -109,7 +110,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
       // Mostrar error real para debugging
-      print("ERROR REGISTER: $e");
+      Logger.error("ERROR REGISTER: $e", 'AuthProvider');
 
       String errorMessage = 'Error al crear cuenta';
 
@@ -203,6 +204,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
   // Verificar si es psicólogo
   bool get isPsicologo => state.user?.isPsicologo ?? false;
 
+  // Verificar si es administrador
+  bool get isAdmin => state.user?.isAdministrador ?? false;
+
+  // Obtener rol del usuario
+  String? get userRole => state.user?.rol;
+
+  // Verificar si el usuario está activo
+  bool get isUserActive => state.user?.isActivo ?? false;
+
   // Obtener nombre para mostrar
   String get displayName => state.user?.displayName ?? 'Usuario';
+
+  // Obtener ID de la clínica
+  String? get clinicaId => state.user?.clinicaId;
+
+  // Verificar si tiene rol específico
+  bool hasRole(String role) => state.user?.rol == role;
+
+  // Verificar si puede acceder a funciones de administrador
+  bool get canAccessAdmin => isAuthenticated && isAdmin && isUserActive;
+
+  // Verificar si puede acceder a funciones de psicólogo
+  bool get canAccessPsicologo => isAuthenticated && isPsicologo && isUserActive;
 }

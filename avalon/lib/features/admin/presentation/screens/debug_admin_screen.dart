@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../admin/data/admin_service.dart';
-import '../../admin/domain/entities/psicologo.dart';
+import '../../data/admin_service.dart';
 import '../../../../core/supabase/supabase.dart';
 import '../../../../core/constants/app_constants.dart';
 
@@ -216,7 +215,7 @@ class _DebugAdminScreenState extends ConsumerState<DebugAdminScreen> {
                 borderRadius: BorderRadius.circular(12.r),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -349,7 +348,6 @@ class _DebugAdminScreenState extends ConsumerState<DebugAdminScreen> {
                                      log.contains('ERROR') ? Colors.red :
                                      Colors.white,
                               fontSize: 11.sp,
-                              fontFamily: 'monospace',
                             ),
                           ),
                         )).toList(),

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/admin_service.dart';
-import '../domain/entities/psicologo.dart';
+import '../../data/admin_service.dart';
+import '../../domain/entities/psicologo.dart';
+import '../../domain/entities/system_stats.dart';
 import '../../../../core/supabase/supabase.dart';
 
 // Estados para la administración
@@ -9,25 +10,29 @@ class AdminState {
   final bool isLoading;
   final String? error;
   final Map<String, dynamic>? estadisticas;
+  final SystemStats systemStats;
 
   AdminState({
     this.psicologos = const [],
     this.isLoading = false,
     this.error,
     this.estadisticas,
-  });
+    SystemStats? systemStats,
+  }) : systemStats = systemStats ?? SystemStats.initial();
 
   AdminState copyWith({
     List<Psicologo>? psicologos,
     bool? isLoading,
     String? error,
     Map<String, dynamic>? estadisticas,
+    SystemStats? systemStats,
   }) {
     return AdminState(
       psicologos: psicologos ?? this.psicologos,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
       estadisticas: estadisticas ?? this.estadisticas,
+      systemStats: systemStats ?? this.systemStats,
     );
   }
 }
@@ -72,9 +77,41 @@ class AdminNotifier extends StateNotifier<AdminState> {
     }
   }
 
+  // Cargar estadísticas del sistema
+  Future<void> loadSystemStats() async {
+    state = state.copyWith(isLoading: true, error: null);
+    
+    try {
+      // NOTE: Using mock data for system stats - implement actual database loading when needed
+      final mockStats = SystemStats(
+        totalPsicologos: state.psicologos.length,
+        totalPacientes: 150, // Mock data
+        totalCitas: 450, // Mock data
+        totalEvaluaciones: 89, // Mock data
+        totalNotas: 234, // Mock data
+        citasHoy: 12, // Mock data
+        citasSemana: 67, // Mock data
+        licenciasActivas: 5, // Mock data
+        licenciasVencidas: 2, // Mock data
+        lastUpdated: DateTime.now(),
+      );
+      
+      state = state.copyWith(
+        systemStats: mockStats,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
   // Refrescar datos
   Future<void> refresh() async {
     await _loadData();
+    await loadSystemStats();
   }
 
   // Crear un nuevo psicólogo

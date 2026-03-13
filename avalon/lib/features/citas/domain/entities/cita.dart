@@ -50,55 +50,61 @@ class Cita {
   final String id;
   final String pacienteId;
   final String psicologoId;
+  final String? licenciaId;
+  final String? deviceId;
   final DateTime fechaHora;
   final Duration duracion;
   final TipoCita tipo;
   final EstadoCita estado;
-  final String? notas;
   final String? motivoConsulta;
+  final String? notas;
   final bool esOnline;
   final String? linkSesion;
+  final double? costo;
+  final bool pagada;
   final DateTime fechaCreacion;
   final DateTime? fechaConfirmacion;
   final DateTime? fechaCancelacion;
   final String? motivoCancelacion;
-  final double? costo;
-  final bool pagada;
-  final String? salaVirtual;
   final Map<String, dynamic>? metadata;
+  final String? resumenSesion;
 
   const Cita({
     required this.id,
     required this.pacienteId,
     required this.psicologoId,
+    this.licenciaId,
+    this.deviceId,
     required this.fechaHora,
     required this.duracion,
     required this.tipo,
     required this.estado,
-    this.notas,
     this.motivoConsulta,
+    this.notas,
     this.esOnline = false,
     this.linkSesion,
+    this.costo,
+    this.pagada = false,
     required this.fechaCreacion,
     this.fechaConfirmacion,
     this.fechaCancelacion,
     this.motivoCancelacion,
-    this.costo,
-    this.pagada = false,
-    this.salaVirtual,
     this.metadata,
+    this.resumenSesion,
   });
 
   Cita copyWith({
     String? id,
     String? pacienteId,
     String? psicologoId,
+    String? licenciaId,
+    String? deviceId,
     DateTime? fechaHora,
     Duration? duracion,
     TipoCita? tipo,
     EstadoCita? estado,
-    String? notas,
     String? motivoConsulta,
+    String? notas,
     bool? esOnline,
     String? linkSesion,
     DateTime? fechaCreacion,
@@ -107,19 +113,21 @@ class Cita {
     String? motivoCancelacion,
     double? costo,
     bool? pagada,
-    String? salaVirtual,
     Map<String, dynamic>? metadata,
+    String? resumenSesion,
   }) {
     return Cita(
       id: id ?? this.id,
       pacienteId: pacienteId ?? this.pacienteId,
       psicologoId: psicologoId ?? this.psicologoId,
+      licenciaId: licenciaId ?? this.licenciaId,
+      deviceId: deviceId ?? this.deviceId,
       fechaHora: fechaHora ?? this.fechaHora,
       duracion: duracion ?? this.duracion,
       tipo: tipo ?? this.tipo,
       estado: estado ?? this.estado,
-      notas: notas ?? this.notas,
       motivoConsulta: motivoConsulta ?? this.motivoConsulta,
+      notas: notas ?? this.notas,
       esOnline: esOnline ?? this.esOnline,
       linkSesion: linkSesion ?? this.linkSesion,
       fechaCreacion: fechaCreacion ?? this.fechaCreacion,
@@ -128,8 +136,8 @@ class Cita {
       motivoCancelacion: motivoCancelacion ?? this.motivoCancelacion,
       costo: costo ?? this.costo,
       pagada: pagada ?? this.pagada,
-      salaVirtual: salaVirtual ?? this.salaVirtual,
       metadata: metadata ?? this.metadata,
+      resumenSesion: resumenSesion ?? this.resumenSesion,
     );
   }
 
@@ -138,14 +146,18 @@ class Cita {
       id: json['id'] as String,
       pacienteId: json['paciente_id'] as String,
       psicologoId: json['psicologo_id'] as String,
+      licenciaId: json['licencia_id'] as String?,
+      deviceId: json['device_id'] as String?,
       fechaHora: DateTime.parse(json['fecha_hora'] as String),
       duracion: Duration(minutes: json['duracion_minutos'] as int? ?? 60),
       tipo: TipoCita.fromString(json['tipo'] as String? ?? 'inicial'),
       estado: EstadoCita.fromString(json['estado'] as String? ?? 'agendada'),
-      notas: json['notas'] as String?,
       motivoConsulta: json['motivo_consulta'] as String?,
+      notas: json['notas'] as String?,
       esOnline: json['es_online'] as bool? ?? false,
       linkSesion: json['link_sesion'] as String?,
+      costo: (json['costo'] as num?)?.toDouble(),
+      pagada: json['pagada'] as bool? ?? false,
       fechaCreacion: DateTime.parse(json['fecha_creacion'] as String),
       fechaConfirmacion: json['fecha_confirmacion'] != null
           ? DateTime.parse(json['fecha_confirmacion'] as String)
@@ -154,10 +166,8 @@ class Cita {
           ? DateTime.parse(json['fecha_cancelacion'] as String)
           : null,
       motivoCancelacion: json['motivo_cancelacion'] as String?,
-      costo: (json['costo'] as num?)?.toDouble(),
-      pagada: json['pagada'] as bool? ?? false,
-      salaVirtual: json['sala_virtual'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
+      resumenSesion: json['resumen_sesion'] as String?,
     );
   }
 
@@ -166,22 +176,24 @@ class Cita {
       'id': id,
       'paciente_id': pacienteId,
       'psicologo_id': psicologoId,
+      'licencia_id': licenciaId,
+      'device_id': deviceId,
       'fecha_hora': fechaHora.toIso8601String(),
       'duracion_minutos': duracion.inMinutes,
       'tipo': tipo.value,
       'estado': estado.value,
-      'notas': notas,
       'motivo_consulta': motivoConsulta,
+      'notas': notas,
       'es_online': esOnline,
       'link_sesion': linkSesion,
+      'costo': costo,
+      'pagada': pagada,
       'fecha_creacion': fechaCreacion.toIso8601String(),
       'fecha_confirmacion': fechaConfirmacion?.toIso8601String(),
       'fecha_cancelacion': fechaCancelacion?.toIso8601String(),
       'motivo_cancelacion': motivoCancelacion,
-      'costo': costo,
-      'pagada': pagada,
-      'sala_virtual': salaVirtual,
       'metadata': metadata,
+      'resumen_sesion': resumenSesion,
     };
   }
 

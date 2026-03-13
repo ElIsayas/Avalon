@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/auth_user.dart' as auth;
 import '../../../../core/security/secure_signout_service.dart';
+import '../../../../core/utils/logger.dart';
 
 class AuthService {
   final SupabaseClient _client;
@@ -28,7 +29,7 @@ class AuthService {
         throw Exception('No se pudo iniciar sesión');
       }
 
-      print("LOGIN OK: ${response.user!.id}");
+      Logger.debug("LOGIN OK: ${response.user!.id}", 'AuthService');
 
       // 2. Obtener datos completos del usuario
       final userData = await _client
@@ -36,6 +37,9 @@ class AuthService {
           .select()
           .eq('auth_user_id', response.user!.id)
           .maybeSingle();
+
+      Logger.debug("USER DATA FROM DB: $userData", 'AuthService');
+      Logger.debug("USER ROLE FROM DB: ${userData?['rol']}", 'AuthService');
 
       if (userData == null) {
         throw Exception('Perfil de usuario no encontrado en el sistema');
@@ -68,7 +72,7 @@ class AuthService {
         throw Exception('Clínica desactivada. Contacte al administrador.');
       }
 
-      print("CLÍNICA VÁLIDA: ${clinicaData['nombre']} ($clinicaId)");
+      Logger.debug("CLÍNICA VÁLIDA: ${clinicaData['nombre']} ($clinicaId)", 'AuthService');
 
       // 6. Validar suscripción activa
       await _validateSubscription(clinicaId);
@@ -83,14 +87,24 @@ class AuthService {
       await _createUserSession(userData['id'].toString(), deviceId);
 
       // 10. Crear AuthUser con todos los datos
-      final authUser = auth.AuthUser.fromMap({
+      final authUserMap = {
         ...response.user!.toJson(),
         ...userData,
         'clinica_nombre': clinicaData['nombre'],
         'dispositivo_id': deviceId,
-      });
+      };
+      
+      Logger.debug("AUTH USER MAP: $authUserMap", 'AuthService');
+      Logger.debug("FINAL ROLE IN AUTH USER MAP: ${authUserMap['rol']}", 'AuthService');
+      
+      final authUser = auth.AuthUser.fromMap(authUserMap);
+      
+      Logger.debug("AUTH USER CREATED: ${authUser.toString()}", 'AuthService');
+      Logger.debug("AUTH USER ROLE: ${authUser.rol}", 'AuthService');
+      Logger.debug("AUTH USER IS ADMIN: ${authUser.isAdministrador}", 'AuthService');
+      Logger.debug("AUTH USER IS PSICOLOGO: ${authUser.isPsicologo}", 'AuthService');
 
-      print("LOGIN COMPLETADO: ${authUser.nombre} - Clínica: ${clinicaData['nombre']}");
+      Logger.info("LOGIN COMPLETADO: ${authUser.nombre} - Clínica: ${clinicaData['nombre']}", 'AuthService');
       return authUser;
     } catch (e) {
       throw _handleAuthError(e);
@@ -142,7 +156,7 @@ class AuthService {
         throw Exception('Límite de usuarios alcanzado para esta clínica ($maxUsuarios usuarios permitidos)');
       }
 
-      print("LICENCIA VÁLIDA: Clínica $clinicaId - Usuarios: $usuariosActuales/$maxUsuarios");
+      Logger.info("LICENCIA VÁLIDA: Clínica $clinicaId - Usuarios: $usuariosActuales/$maxUsuarios", 'AuthService');
 
       return {
         'clinica_id': clinicaId,
@@ -175,7 +189,7 @@ class AuthService {
         throw Exception('La clínica no tiene una suscripción activa');
       }
 
-      print("SUSCRIPCIÓN VÁLIDA: ${subscriptionData['estado']} - Vence: ${subscriptionData['fecha_fin']}");
+      Logger.info("SUSCRIPCIÓN VÁLIDA: ${subscriptionData['estado']} - Vence: ${subscriptionData['fecha_fin']}", 'AuthService');
 
       return subscriptionData;
     } catch (e) {
@@ -205,10 +219,10 @@ class AuthService {
               .update({'activa': false})
               .eq('id', session['id']);
         }
-        print("Cerradas ${activeSessions.length} sesiones anteriores para usuario $usuarioId");
+        Logger.info("Cerradas ${activeSessions.length} sesiones anteriores para usuario $usuarioId", 'AuthService');
       }
     } catch (e) {
-      print("Error controlando sesión única: $e");
+      Logger.error("Error controlando sesión única: $e", 'AuthService');
       // No bloquear el login si falla el control de sesión
     }
   }
@@ -231,10 +245,10 @@ class AuthService {
             'activo': true,
           }, onConflict: 'usuario_id');
 
-      print("Dispositivo registrado: $deviceId");
+      Logger.debug("Dispositivo registrado: $deviceId", 'AuthService');
       return deviceId;
     } catch (e) {
-      print("Error registrando dispositivo: $e");
+      Logger.error("Error registrando dispositivo: $e", 'AuthService');
       // Continuar con login aunque falle el registro de dispositivo
       return 'fallback_device_${DateTime.now().millisecondsSinceEpoch}';
     }
@@ -256,9 +270,9 @@ class AuthService {
             'login_time': DateTime.now().toIso8601String(),
           });
 
-      print("Sesión creada para usuario $usuarioId con dispositivo $deviceId");
+      Logger.debug("Sesión creada para usuario $usuarioId con dispositivo $deviceId", 'AuthService');
     } catch (e) {
-      print("Error creando sesión: $e");
+      Logger.error("Error creando sesión: $e", 'AuthService');
       // No bloquear el login si falla la creación de sesión
     }
   }
@@ -275,13 +289,13 @@ class AuthService {
     required String licenseKey,
   }) async {
     try {
-      print("SIGNUP: validando licencia $licenseKey");
+      Logger.debug("SIGNUP: validando licencia $licenseKey", 'AuthService');
 
       // 1. Validar licencia antes de crear usuario
       final licenseValidation = await _validateLicense(licenseKey);
       final clinicaId = licenseValidation['clinica_id'] as String;
 
-      print("SIGNUP: licencia válida para clínica $clinicaId");
+      Logger.info("SIGNUP: licencia válida para clínica $clinicaId", 'AuthService');
 
       // 2. Crear usuario en Supabase Auth
       final response = await _client.auth.signUp(
@@ -293,7 +307,7 @@ class AuthService {
         throw Exception("No se pudo crear el usuario en el sistema de autenticación");
       }
 
-      print("AUTH USER ID: ${response.user!.id}");
+      Logger.debug("AUTH USER ID: ${response.user!.id}", 'AuthService');
 
       // 3. Insertar perfil en tabla usuarios con clinica_id de la licencia
       final userData = await _client
@@ -309,7 +323,7 @@ class AuthService {
           .select()
           .single();
 
-      print("Usuario creado en tabla usuarios con clínica $clinicaId");
+      Logger.info("Usuario creado en tabla usuarios con clínica $clinicaId", 'AuthService');
 
       // 4. Retornar usuario completo
       return auth.AuthUser.fromMap({
@@ -340,14 +354,26 @@ class AuthService {
           .eq('auth_user_id', user.id)
           .maybeSingle();
 
+      Logger.debug("GET CURRENT USER - USER DATA: $userData", 'AuthService');
+      Logger.debug("GET CURRENT USER - ROLE: ${userData?['rol']}", 'AuthService');
+
       if (userData == null) {
         return auth.AuthUser.fromMap(user.toJson());
       }
 
-      return auth.AuthUser.fromMap({
+      final authUserMap = {
         ...user.toJson(),
         ...userData,
-      });
+      };
+      
+      Logger.debug("GET CURRENT USER - AUTH MAP: $authUserMap", 'AuthService');
+      
+      final authUser = auth.AuthUser.fromMap(authUserMap);
+      
+      Logger.debug("GET CURRENT USER - AUTH USER ROLE: ${authUser.rol}", 'AuthService');
+      Logger.debug("GET CURRENT USER - AUTH USER IS ADMIN: ${authUser.isAdministrador}", 'AuthService');
+
+      return authUser;
     } catch (_) {
       return null;
     }
@@ -379,12 +405,12 @@ class AuthService {
       await _signOutFromSupabaseSafely();
       
       // 4. Logging final del proceso completo
-      print("✅ SIGNOUT COMPLETO: Todos los datos limpiados exitosamente "
-            "${deviceId != null ? '(device: $deviceId)' : ''}");
+      Logger.info("✅ SIGNOUT COMPLETO: Todos los datos limpiados exitosamente "
+            "${deviceId != null ? '(device: $deviceId)' : ''}", 'AuthService');
       
     } catch (e) {
       // 5. Asegurar que el signOut siempre complete incluso si falla Supabase
-      print("❌ ERROR EN SIGNOUT: $e");
+      Logger.error("❌ ERROR EN SIGNOUT: $e", 'AuthService');
       
       // Forzar limpieza local de emergencia si algo falla
       try {
@@ -392,9 +418,9 @@ class AuthService {
           clearAllData: true,
           customLogMessage: 'Emergency signOut after error',
         );
-        print("🔧 LIMPIEZA DE EMERGENCIA COMPLETADA");
+        Logger.warning("🔧 LIMPIEZA DE EMERGENCIA COMPLETADA", 'AuthService');
       } catch (emergencyError) {
-        print("🚨 ERROR CRÍTICO EN LIMPIEZA: $emergencyError");
+        Logger.error("🚨 ERROR CRÍTICO EN LIMPIEZA: $emergencyError", 'AuthService');
       }
       
       // No relanzar excepción para no bloquear el flujo de logout
@@ -406,9 +432,9 @@ class AuthService {
   Future<void> _signOutFromSupabaseSafely() async {
     try {
       await _client.auth.signOut();
-      print("📡 Sesión Supabase cerrada exitosamente");
+      Logger.info("📡 Sesión Supabase cerrada exitosamente", 'AuthService');
     } catch (e) {
-      print("⚠️ Error cerrando sesión en Supabase: $e");
+      Logger.warning("⚠️ Error cerrando sesión en Supabase: $e", 'AuthService');
       // No lanzar excepción - el logout local ya se completó
     }
   }
@@ -433,7 +459,7 @@ class AuthService {
       
       return hasLocalSession || hasSupabaseSession;
     } catch (e) {
-      print("Error verificando sesión activa: $e");
+      Logger.error("Error verificando sesión activa: $e", 'AuthService');
       return false;
     }
   }

@@ -6,6 +6,7 @@ import '../providers/paciente_provider.dart';
 import '../widgets/paciente_form_dialog.dart';
 import '../widgets/paciente_card.dart';
 import '../widgets/paciente_search_delegate.dart';
+import '../../../../models/paciente_model.dart';
 
 class PacientesScreen extends ConsumerStatefulWidget {
   const PacientesScreen({super.key});
@@ -16,7 +17,9 @@ class PacientesScreen extends ConsumerStatefulWidget {
 
 class _PacientesScreenState extends ConsumerState<PacientesScreen> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
   bool _showOnlyActive = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -24,6 +27,13 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(pacientesProvider.notifier).loadPacientes();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -60,42 +70,50 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
         title: Text(
           'Gestión de Pacientes',
           style: GoogleFonts.inter(
-            fontSize: 24.sp,
-            fontWeight: FontWeight.bold,
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
         ),
-        backgroundColor: const Color(0xFF2C3E50),
+        backgroundColor: const Color(0xFF3498DB),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
-            onPressed: () => _showSearchDialog(),
+            onPressed: _showUserInfo,
+            icon: const Icon(Icons.person),
+            tooltip: 'Info del Usuario',
+          ),
+          IconButton(
+            onPressed: _testDatabaseConnection,
+            icon: const Icon(Icons.bug_report),
+            tooltip: 'Testear conexión DB',
+          ),
+          IconButton(
+            onPressed: _showSearchDialog,
             icon: const Icon(Icons.search),
             tooltip: 'Buscar pacientes',
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'activos') {
-                setState(() {
-                  _showOnlyActive = !_showOnlyActive;
-                });
-                if (_showOnlyActive) {
-                  ref.read(pacientesProvider.notifier).loadPacientesActivos();
-                } else {
-                  ref.read(pacientesProvider.notifier).loadPacientes();
-                }
-              } else if (value == 'refresh') {
-                if (_showOnlyActive) {
-                  ref.read(pacientesProvider.notifier).loadPacientesActivos();
-                } else {
-                  ref.read(pacientesProvider.notifier).loadPacientes();
-                }
+              switch (value) {
+                case 'toggle_active':
+                  setState(() {
+                    _showOnlyActive = !_showOnlyActive;
+                  });
+                  break;
+                case 'refresh':
+                  if (_showOnlyActive) {
+                    ref.read(pacientesProvider.notifier).loadPacientesActivos();
+                  } else {
+                    ref.read(pacientesProvider.notifier).loadPacientes();
+                  }
+                  break;
               }
             },
             itemBuilder: (context) => [
               PopupMenuItem(
-                value: 'activos',
+                value: 'toggle_active',
                 child: Row(
                   children: [
                     Icon(
@@ -123,18 +141,19 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
       ),
       body: Column(
         children: [
+          _buildSearchAndFilterBar(pacientesState),
           _buildEstadisticsCard(pacientesState),
           Expanded(
             child: pacientesState.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : pacientesState.pacientes.isEmpty
+                : _getFilteredPacientes(pacientesState).isEmpty
                     ? _buildEmptyState()
-                    : _buildPacientesList(pacientesState),
+                    : _buildPacientesList(_getFilteredPacientes(pacientesState)),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreatePacienteDialog(),
+        onPressed: _showCreatePacienteDialog,
         backgroundColor: const Color(0xFF3498DB),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
@@ -144,6 +163,143 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildSearchAndFilterBar(PacientesState state) {
+    return Container(
+      margin: EdgeInsets.all(16.w),
+      child: Column(
+        children: [
+          // Barra de búsqueda
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12.r),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Buscar pacientes por nombre, email o documento...',
+                prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                        icon: Icon(Icons.clear, color: Colors.grey[600]),
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                hintStyle: GoogleFonts.inter(
+                  color: Colors.grey[600],
+                  fontSize: 14.sp,
+                ),
+              ),
+            ),
+          ),
+          
+          SizedBox(height: 12.h),
+          
+          // Filtros
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _showOnlyActive = !_showOnlyActive;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(8.r),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                    decoration: BoxDecoration(
+                      color: _showOnlyActive ? Colors.blue.withValues(alpha: 0.1) : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(
+                        color: _showOnlyActive ? Colors.blue : Colors.grey[300]!,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _showOnlyActive ? Icons.check_box : Icons.check_box_outline_blank,
+                          color: _showOnlyActive ? Colors.blue : Colors.grey[600],
+                          size: 20.w,
+                        ),
+                        SizedBox(width: 8.w),
+                        Text(
+                          'Solo activos',
+                          style: GoogleFonts.inter(
+                            color: _showOnlyActive ? Colors.blue : Colors.grey[700],
+                            fontWeight: _showOnlyActive ? FontWeight.w600 : FontWeight.normal,
+                            fontSize: 14.sp,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              
+              SizedBox(width: 12.w),
+              
+              // Botón de búsqueda avanzada
+              ElevatedButton.icon(
+                onPressed: _showSearchDialog,
+                icon: Icon(Icons.search, size: 18.w),
+                label: Text('Búsqueda avanzada'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Paciente> _getFilteredPacientes(PacientesState state) {
+    List<Paciente> pacientes = state.pacientes;
+    
+    // Filtrar por estado activo
+    if (_showOnlyActive) {
+      pacientes = pacientes.where((p) => p.activo).toList();
+    }
+    
+    // Filtrar por búsqueda
+    if (_searchQuery.isNotEmpty) {
+      pacientes = pacientes.where((p) =>
+          p.nombre.toLowerCase().contains(_searchQuery) ||
+          p.email.toLowerCase().contains(_searchQuery) ||
+          (p.numeroDocumento.toLowerCase().contains(_searchQuery))
+      ).toList();
+    }
+    
+    return pacientes;
   }
 
   Widget _buildEstadisticsCard(PacientesState state) {
@@ -159,7 +315,7 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withValues(alpha:0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -248,7 +404,7 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
     );
   }
 
-  Widget _buildPacientesList(PacientesState state) {
+  Widget _buildPacientesList(List<Paciente> pacientes) {
     return RefreshIndicator(
       onRefresh: () async {
         if (_showOnlyActive) {
@@ -260,9 +416,9 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
       child: ListView.builder(
         controller: _scrollController,
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        itemCount: state.pacientes.length,
+        itemCount: pacientes.length,
         itemBuilder: (context, index) {
-          final paciente = state.pacientes[index];
+          final paciente = pacientes[index];
           return PacienteCard(
             paciente: paciente,
             onEdit: () => _showEditPacienteDialog(paciente),
@@ -273,6 +429,78 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
         },
       ),
     );
+  }
+
+  void _showUserInfo() {
+    final authState = ref.read(authProvider);
+    final currentUser = authState.user;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Información del Usuario'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('ID: ${currentUser?.id ?? "No disponible"}'),
+            SizedBox(height: 8.h),
+            Text('Nombre: ${currentUser?.nombre ?? "No disponible"}'),
+            SizedBox(height: 8.h),
+            Text('Email: ${currentUser?.email ?? "No disponible"}'),
+            SizedBox(height: 8.h),
+            Text('Rol: ${currentUser?.rol ?? "No disponible"}'),
+            SizedBox(height: 8.h),
+            Text('Es Administrador: ${currentUser?.isAdministrador ?? false}'),
+            SizedBox(height: 8.h),
+            Text('Es Psicólogo: ${currentUser?.isPsicologo ?? false}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _testDatabaseConnection() async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Iniciando test de conexión a la base de datos...'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+      
+      final service = ref.read(pacienteServiceProvider);
+      final result = await service.testDatabaseConnection();
+      
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Test exitoso: ${result['message']}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Test fallido: ${result['error']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error en test: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showSearchDialog() {
@@ -301,7 +529,7 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
     );
   }
 
-  void _showEditPacienteDialog(paciente) {
+  void _showEditPacienteDialog(Paciente paciente) {
     showDialog(
       context: context,
       builder: (context) => PacienteFormDialog(
@@ -311,6 +539,7 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
             id: paciente.id,
             nombre: nombre,
             email: email,
+            numeroDocumento: numeroDocumento,
             telefono: telefono,
             direccion: direccion,
             fechaNacimiento: fechaNacimiento,
@@ -321,79 +550,58 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
     );
   }
 
-  void _showDeleteConfirmation(paciente) {
+  void _showDeleteConfirmation(Paciente paciente) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Eliminar Paciente'),
-        content: Text('¿Estás seguro de que deseas eliminar a ${paciente.nombre}?'),
+        content: Text('¿Estás seguro de que quieres eliminar a ${paciente.nombre}?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context).pop(),
             child: Text('Cancelar'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.of(context).pop();
               ref.read(pacientesProvider.notifier).deletePaciente(paciente.id);
             },
-            child: Text('Eliminar', style: TextStyle(color: Colors.red)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Eliminar'),
           ),
         ],
       ),
     );
   }
 
-  void _togglePacienteStatus(paciente) {
-    final action = paciente.activo ? 'desactivar' : 'activar';
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('$action Paciente'),
-        content: Text('¿Estás seguro de que deseas $action a ${paciente.nombre}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(pacientesProvider.notifier).desactivarPaciente(paciente.id);
-            },
-            child: Text(action, style: TextStyle(color: Colors.orange)),
-          ),
-        ],
-      ),
-    );
+  void _togglePacienteStatus(Paciente paciente) {
+    ref.read(pacientesProvider.notifier).togglePacienteStatus(paciente.id);
   }
 
-  void _showPacienteDetails(paciente) {
+  void _showPacienteDetails(Paciente paciente) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Detalles del Paciente'),
+        title: Text(paciente.nombre),
         content: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDetailRow('Nombre:', paciente.nombre),
-              _buildDetailRow('Email:', paciente.email),
-              if (paciente.telefono != null) _buildDetailRow('Teléfono:', paciente.telefono!),
-              if (paciente.direccion != null) _buildDetailRow('Dirección:', paciente.direccion!),
-              if (paciente.fechaNacimiento != null)
-                _buildDetailRow('Fecha Nacimiento:', _formatDate(paciente.fechaNacimiento!)),
-              if (paciente.historialMedico != null)
-                _buildDetailRow('Historial Médico:', paciente.historialMedico!),
-              _buildDetailRow('Estado:', paciente.activo ? 'Activo' : 'Inactivo'),
-              _buildDetailRow('Fecha Registro:', _formatDate(paciente.fechaRegistro)),
+              _buildDetailRow('Email', paciente.email),
+              _buildDetailRow('Documento', paciente.numeroDocumento ?? 'No especificado'),
+              _buildDetailRow('Teléfono', paciente.telefono ?? 'No especificado'),
+              _buildDetailRow('Dirección', paciente.direccion ?? 'No especificado'),
+              _buildDetailRow('Fecha de Nacimiento', _formatDate(paciente.fechaNacimiento)),
+              _buildDetailRow('Estado', paciente.activo ? 'Activo' : 'Inactivo'),
+              if (paciente.historialMedico?.isNotEmpty == true)
+                _buildDetailRow('Historial Médico', paciente.historialMedico!),
             ],
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context).pop(),
             child: Text('Cerrar'),
           ),
         ],
@@ -410,7 +618,7 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
           SizedBox(
             width: 120.w,
             child: Text(
-              label,
+              '$label:',
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: Colors.grey[700],
@@ -428,7 +636,8 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'No especificada';
     return '${date.day}/${date.month}/${date.year}';
   }
 }

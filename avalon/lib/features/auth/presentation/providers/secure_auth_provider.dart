@@ -59,7 +59,7 @@ class SecureAuthNotifier extends StateNotifier<SecureAuthState> {
     state = state.copyWith(isLoading: true, error: null);
     
     try {
-      final user = await _authService.signInWithEmailAndPassword(email, password);
+      await _authService.signInWithEmailAndPassword(email, password);
       
       // Obtener información del dispositivo después del login
       final deviceId = await _secureSignOutService.getCurrentDeviceId();

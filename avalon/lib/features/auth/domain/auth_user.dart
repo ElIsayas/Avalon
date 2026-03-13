@@ -71,7 +71,7 @@ class AuthUser {
 
   // Getters útiles
   bool get isPsicologo => rol == 'psicologo';
-  bool get isAdministrador => rol == 'administrador';
+  bool get isAdministrador => rol == 'admin' || rol == 'administrador';  // Support both variations
   bool get isActivo => activo ?? false;
   String get displayName => nombre ?? email;
 }

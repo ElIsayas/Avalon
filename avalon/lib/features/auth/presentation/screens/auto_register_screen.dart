@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/user_auth_provider.dart';
 import 'auto_login_screen.dart';
+import '../../../../core/utils/logger.dart';
 
 class AutoRegisterScreen extends ConsumerStatefulWidget {
   const AutoRegisterScreen({super.key});
@@ -30,14 +31,14 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
   }
 
   Future<void> _register() async {
-    print('🖥️ UI DEBUG: Botón de registro presionado');
+    Logger.debug('🖥️ UI DEBUG: Botón de registro presionado', 'AutoRegisterScreen');
     
     if (!_formKey.currentState!.validate()) {
-      print('❌ UI DEBUG: Validación del formulario falló');
+      Logger.warning('❌ UI DEBUG: Validación del formulario falló', 'AutoRegisterScreen');
       return;
     }
 
-    print('✅ UI DEBUG: Validación del formulario exitosa');
+    Logger.info('✅ UI DEBUG: Validación del formulario exitosa', 'AutoRegisterScreen');
 
     final nombre = _nombreController.text.trim();
     final email = _emailController.text.trim();
@@ -50,12 +51,12 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
       // deviceId = await _getDeviceId();
       deviceId = null; // Por ahora null
     } catch (e) {
-      print('⚠️ UI DEBUG: No se pudo obtener device_id: $e');
+      Logger.warning('⚠️ UI DEBUG: No se pudo obtener device_id: $e', 'AutoRegisterScreen');
       deviceId = null;
     }
 
-    print('📝 UI DEBUG: Datos del formulario - Nombre: $nombre, Email: $email, Password: ${password.isNotEmpty ? "***" : "EMPTY"}');
-    print('📱 UI DEBUG: Device ID: ${deviceId ?? "NO PROPORCIONADO"}');
+    Logger.debug('📝 UI DEBUG: Datos del formulario - Nombre: $nombre, Email: $email, Password: ${password.isNotEmpty ? "***" : "EMPTY"}', 'AutoRegisterScreen');
+    Logger.debug('📱 UI DEBUG: Device ID: ${deviceId ?? "NO PROPORCIONADO"}', 'AutoRegisterScreen');
 
     final success = await ref.read(userAuthProvider.notifier).createUser(
       nombre: nombre,
@@ -64,10 +65,10 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
       deviceId: deviceId,  // Pasar deviceId opcional
     );
 
-    print('📊 UI DEBUG: Resultado del registro - Success: $success');
+    Logger.debug('📊 UI DEBUG: Resultado del registro - Success: $success', 'AutoRegisterScreen');
 
     if (success && mounted) {
-      print('🎉 UI DEBUG: Registro exitoso, mostrando SnackBar y navegando');
+      Logger.info('🎉 UI DEBUG: Registro exitoso, mostrando SnackBar y navegando', 'AutoRegisterScreen');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('¡Usuario registrado exitosamente!'),
@@ -77,7 +78,7 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
       // Navegar al login o dashboard
       Navigator.pushReplacementNamed(context, '/login');
     } else {
-      print('😞 UI DEBUG: Registro falló, error ya mostrado en UI');
+      Logger.warning('😞 UI DEBUG: Registro falló, error ya mostrado en UI', 'AutoRegisterScreen');
     }
   }
 

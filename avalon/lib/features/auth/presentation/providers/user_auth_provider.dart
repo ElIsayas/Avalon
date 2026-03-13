@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/user_service.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Estado de autenticación de usuarios
 class UserAuthState {
@@ -46,10 +47,10 @@ class UserAuthState {
 
 /// Provider del servicio de usuarios
 final userServiceProvider = Provider<UserService>((ref) {
-  print('🔧 INIT DEBUG: Creando UserService...');
+  Logger.debug('🔧 INIT DEBUG: Creando UserService...', 'UserAuthProvider');
   final client = Supabase.instance.client;
-  print('🌐 INIT DEBUG: Supabase Client inicializado');
-  print('📡 INIT DEBUG: Servicio de usuarios listo');
+  Logger.debug('🌐 INIT DEBUG: Supabase Client inicializado', 'UserAuthProvider');
+  Logger.debug('📡 INIT DEBUG: Servicio de usuarios listo', 'UserAuthProvider');
   return UserService(client);
 });
 
@@ -70,10 +71,10 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
     if (state.user == null) return false;
     
     try {
-      print('🔍 PROVIDER DEBUG: Verificando licencia para usuario ${state.user!.id}');
+      Logger.debug('🔍 PROVIDER DEBUG: Verificando licencia para usuario ${state.user!.id}', 'UserAuthProvider');
       return await _userService.checkActiveLicense(state.user!.id);
     } catch (e) {
-      print('💥 PROVIDER CATCH: Error verificando licencia: $e');
+      Logger.error('💥 PROVIDER CATCH: Error verificando licencia: $e', 'UserAuthProvider');
       return false;
     }
   }
@@ -85,7 +86,7 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
     required String password,
     String? deviceId,  // Opcional
   }) async {
-    print('🔄 PROVIDER DEBUG: Iniciando createUser...');
+    Logger.debug('🔄 PROVIDER DEBUG: Iniciando createUser...', 'UserAuthProvider');
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -96,11 +97,11 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
         deviceId: deviceId,  // Pasar deviceId opcional
       );
 
-      print('📊 PROVIDER DEBUG: Respuesta del servicio - Success: ${response.success}');
+      Logger.debug('📊 PROVIDER DEBUG: Respuesta del servicio - Success: ${response.success}', 'UserAuthProvider');
 
       if (response.success && response.user != null) {
-        print('✅ PROVIDER SUCCESS: Usuario creado exitosamente');
-        print('👤 PROVIDER USER: ID=${response.user!.id}, Nombre=${response.user!.nombre}, Email=${response.user!.email}');
+        Logger.info('✅ PROVIDER SUCCESS: Usuario creado exitosamente', 'UserAuthProvider');
+        Logger.debug('👤 PROVIDER USER: ID=${response.user!.id}, Nombre=${response.user!.nombre}, Email=${response.user!.email}', 'UserAuthProvider');
         
         state = state.copyWith(
           isLoading: false,
@@ -109,7 +110,7 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
         );
         return true;
       } else {
-        print('❌ PROVIDER ERROR: ${response.error}');
+        Logger.warning('❌ PROVIDER ERROR: ${response.error}', 'UserAuthProvider');
         state = state.copyWith(
           isLoading: false,
           error: response.error ?? 'Error desconocido',
@@ -117,8 +118,8 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
         return false;
       }
     } catch (e) {
-      print('💥 PROVIDER CATCH: Error creando usuario: $e');
-      print('🔧 PROVIDER STACK: ${StackTrace.current}');
+      Logger.error('💥 PROVIDER CATCH: Error creando usuario: $e', 'UserAuthProvider');
+      Logger.debug('🔧 PROVIDER STACK: ${StackTrace.current}', 'UserAuthProvider');
       state = state.copyWith(
         isLoading: false,
         error: 'Error creando usuario: $e',
@@ -132,7 +133,7 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
     required String email,  // Cambiado de username a email
     required String password,
   }) async {
-    print('🔄 PROVIDER DEBUG: Iniciando signIn...');
+    Logger.debug('🔄 PROVIDER DEBUG: Iniciando signIn...', 'UserAuthProvider');
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -141,11 +142,11 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
         password: password,
       );
 
-      print('📊 PROVIDER DEBUG: Respuesta del servicio - Success: ${response.success}');
+      Logger.debug('📊 PROVIDER DEBUG: Respuesta del servicio - Success: ${response.success}', 'UserAuthProvider');
 
       if (response.success && response.user != null) {
-        print('✅ PROVIDER SUCCESS: Login exitoso');
-        print('👤 PROVIDER USER: ID=${response.user!.id}, Email=${response.user!.email}');
+        Logger.info('✅ PROVIDER SUCCESS: Login exitoso', 'UserAuthProvider');
+        Logger.debug('👤 PROVIDER USER: ID=${response.user!.id}, Email=${response.user!.email}', 'UserAuthProvider');
         
         state = state.copyWith(
           isLoading: false,
@@ -154,7 +155,7 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
         );
         return true;
       } else {
-        print('❌ PROVIDER ERROR: ${response.error}');
+        Logger.warning('❌ PROVIDER ERROR: ${response.error}', 'UserAuthProvider');
         state = state.copyWith(
           isLoading: false,
           error: response.error ?? 'Error desconocido',
@@ -162,8 +163,8 @@ class UserAuthNotifier extends StateNotifier<UserAuthState> {
         return false;
       }
     } catch (e) {
-      print('💥 PROVIDER CATCH: Error iniciando sesión: $e');
-      print('🔧 PROVIDER STACK: ${StackTrace.current}');
+      Logger.error('💥 PROVIDER CATCH: Error iniciando sesión: $e', 'UserAuthProvider');
+      Logger.debug('🔧 PROVIDER STACK: ${StackTrace.current}', 'UserAuthProvider');
       state = state.copyWith(
         isLoading: false,
         error: 'Error iniciando sesión: $e',

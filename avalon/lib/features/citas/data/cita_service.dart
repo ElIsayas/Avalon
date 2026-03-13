@@ -93,6 +93,9 @@ class CitaService {
     String? motivoConsulta,
     bool esOnline = false,
     double? costo,
+    String? licenciaId,
+    String? deviceId,
+    String? resumenSesion,
   }) async {
     try {
       final citaData = {
@@ -108,6 +111,9 @@ class CitaService {
         'fecha_creacion': DateTime.now().toIso8601String(),
         'costo': costo,
         'pagada': false,
+        'licencia_id': licenciaId,
+        'device_id': deviceId,
+        'resumen_sesion': resumenSesion,
       };
 
       final response = await _supabase
@@ -136,6 +142,9 @@ class CitaService {
     String? motivoCancelacion,
     double? costo,
     bool? pagada,
+    String? licenciaId,
+    String? deviceId,
+    String? resumenSesion,
   }) async {
     try {
       final updateData = <String, dynamic>{};
@@ -176,6 +185,15 @@ class CitaService {
       }
       if (pagada != null) {
         updateData['pagada'] = pagada;
+      }
+      if (licenciaId != null) {
+        updateData['licencia_id'] = licenciaId;
+      }
+      if (deviceId != null) {
+        updateData['device_id'] = deviceId;
+      }
+      if (resumenSesion != null) {
+        updateData['resumen_sesion'] = resumenSesion;
       }
 
       final response = await _supabase
@@ -257,6 +275,128 @@ class CitaService {
       };
     } catch (e) {
       throw Exception('Error al obtener estadísticas: $e');
+    }
+  }
+
+  // Enhanced methods for better functionality
+  
+  // Obtener citas de la semana
+  Future<List<Cita>> getCitasSemana({String? psicologoId}) async {
+    final ahora = DateTime.now();
+    final inicioSemana = ahora.subtract(Duration(days: ahora.weekday - 1));
+    final finSemana = inicioSemana.add(const Duration(days: 7));
+
+    try {
+      final response = await _supabase
+          .from('citas')
+          .select('*')
+          .gte('fecha_hora', inicioSemana.toIso8601String())
+          .lt('fecha_hora', finSemana.toIso8601String())
+          .order('fecha_hora', ascending: true);
+
+      return response.map((json) => Cita.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al cargar citas de la semana: $e');
+    }
+  }
+
+  // Obtener citas por rango de fechas
+  Future<List<Cita>> getCitasPorRango(
+    DateTime inicio,
+    DateTime fin, {
+    String? psicologoId,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('citas')
+          .select('*')
+          .gte('fecha_hora', inicio.toIso8601String())
+          .lte('fecha_hora', fin.toIso8601String())
+          .order('fecha_hora', ascending: true);
+
+      return response.map((json) => Cita.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al cargar citas por rango: $e');
+    }
+  }
+
+  // Obtener citas por paciente
+  Future<List<Cita>> getCitasPorPaciente(
+    String pacienteId, {
+    String? psicologoId,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('citas')
+          .select('*')
+          .eq('paciente_id', pacienteId)
+          .order('fecha_hora', ascending: false);
+
+      return response.map((json) => Cita.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al cargar citas del paciente: $e');
+    }
+  }
+
+  // Verificar disponibilidad de horario
+  Future<bool> isHorarioDisponible({
+    required String psicologoId,
+    required DateTime fechaHora,
+    required Duration duracion,
+    String? excludeCitaId,
+  }) async {
+    try {
+      final finCita = fechaHora.add(duracion);
+      
+      final response = await _supabase
+          .from('citas')
+          .select('*')
+          .eq('psicologo_id', psicologoId)
+          .or('fecha_hora.lt.${finCita.toIso8601String()},fecha_hora.gte.${fechaHora.toIso8601String()}');
+
+      if (excludeCitaId != null) {
+        final filteredResponse = response.where((cita) => cita['id'] != excludeCitaId).toList();
+        return filteredResponse.isEmpty;
+      }
+
+      return response.isEmpty;
+    } catch (e) {
+      throw Exception('Error al verificar disponibilidad: $e');
+    }
+  }
+
+  // Obtener próximas citas
+  Future<List<Cita>> getProximasCitas({
+    String? psicologoId,
+    int limite = 10,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('citas')
+          .select('*')
+          .gte('fecha_hora', DateTime.now().toIso8601String())
+          .order('fecha_hora', ascending: true)
+          .limit(limite);
+
+      return response.map((json) => Cita.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al cargar próximas citas: $e');
+    }
+  }
+
+  // Obtener citas pendientes de pago
+  Future<List<Cita>> getCitasPendientesPago({String? psicologoId}) async {
+    try {
+      final response = await _supabase
+          .from('citas')
+          .select('*')
+          .eq('pagada', false)
+          .not('costo', 'is', null)
+          .order('fecha_hora', ascending: false);
+
+      return response.map((json) => Cita.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al cargar citas pendientes de pago: $e');
     }
   }
 }

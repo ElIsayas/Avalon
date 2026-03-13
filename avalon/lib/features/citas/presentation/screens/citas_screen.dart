@@ -140,7 +140,7 @@ class _CitasScreenState extends ConsumerState<CitasScreen> with TickerProviderSt
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -365,7 +365,7 @@ class _CitasScreenState extends ConsumerState<CitasScreen> with TickerProviderSt
     );
   }
 
-  void _showEditCitaDialog(cita) {
+  void _showEditCitaDialog(Cita cita) {
     showDialog(
       context: context,
       builder: (context) => CitaFormDialog(
@@ -386,7 +386,7 @@ class _CitasScreenState extends ConsumerState<CitasScreen> with TickerProviderSt
     );
   }
 
-  void _showDeleteConfirmation(cita) {
+  void _showDeleteConfirmation(Cita cita) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -409,12 +409,12 @@ class _CitasScreenState extends ConsumerState<CitasScreen> with TickerProviderSt
     );
   }
 
-  void _confirmarCita(cita) {
+  void _confirmarCita(Cita cita) {
     ref.read(citasProvider.notifier).confirmarCita(cita.id);
   }
 
-  void _showCancelDialog(cita) {
-    final TextEditingController _motivoController = TextEditingController();
+  void _showCancelDialog(Cita cita) {
+    final TextEditingController motivoController = TextEditingController();
     
     showDialog(
       context: context,
@@ -426,7 +426,7 @@ class _CitasScreenState extends ConsumerState<CitasScreen> with TickerProviderSt
             Text('¿Estás seguro de que deseas cancelar esta cita?'),
             SizedBox(height: 16.h),
             TextField(
-              controller: _motivoController,
+              controller: motivoController,
               decoration: InputDecoration(
                 labelText: 'Motivo de cancelación',
                 border: OutlineInputBorder(),
@@ -443,8 +443,8 @@ class _CitasScreenState extends ConsumerState<CitasScreen> with TickerProviderSt
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              if (_motivoController.text.trim().isNotEmpty) {
-                ref.read(citasProvider.notifier).cancelarCita(cita.id, _motivoController.text);
+              if (motivoController.text.trim().isNotEmpty) {
+                ref.read(citasProvider.notifier).cancelarCita(cita.id, motivoController.text);
               }
             },
             child: Text('Confirmar', style: TextStyle(color: Colors.orange)),
@@ -454,7 +454,7 @@ class _CitasScreenState extends ConsumerState<CitasScreen> with TickerProviderSt
     );
   }
 
-  void _completarCita(cita) {
+  void _completarCita(Cita cita) {
     ref.read(citasProvider.notifier).completarCita(cita.id);
   }
 

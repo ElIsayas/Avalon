@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../providers/user_auth_provider.dart';
 import 'auto_register_screen.dart';
+import '../../../../core/utils/logger.dart';
 
 class AutoLoginScreen extends ConsumerStatefulWidget {
   const AutoLoginScreen({super.key});
@@ -24,33 +26,34 @@ class _AutoLoginScreenState extends ConsumerState<AutoLoginScreen> {
   }
 
   Future<void> _login() async {
-    print('🖥️ UI DEBUG: Botón de login presionado');
+    Logger.debug('🖥️ LOGIN DEBUG: Botón de login presionado', 'AutoLoginScreen');
     
     if (!_formKey.currentState!.validate()) {
-      print('❌ UI DEBUG: Validación del formulario falló');
+      Logger.warning('❌ LOGIN DEBUG: Validación del formulario falló', 'AutoLoginScreen');
       return;
     }
 
-    print('✅ UI DEBUG: Validación del formulario exitosa');
+    Logger.debug('✅ LOGIN DEBUG: Validación del formulario exitosa', 'AutoLoginScreen');
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    print('📝 UI DEBUG: Datos del formulario - Email: $email, Password: ${password.isNotEmpty ? "***" : "EMPTY"}');
+    Logger.debug('📝 LOGIN DEBUG: Email: $email', 'AutoLoginScreen');
+    Logger.debug('🔒 LOGIN DEBUG: Password: ${password.isNotEmpty ? "***" : "EMPTY"}', 'AutoLoginScreen');
 
     final success = await ref.read(userAuthProvider.notifier).signIn(
       email: email,
       password: password,
     );
 
-    print('📊 UI DEBUG: Resultado del login - Success: $success');
+    Logger.debug('� LOGIN DEBUG: Resultado del signIn - Success: $success', 'AutoLoginScreen');
 
     if (success && mounted) {
-      print('🎉 UI DEBUG: Login exitoso, navegando al dashboard');
+      Logger.info('🎉 LOGIN DEBUG: Login exitoso, mostrando SnackBar y navegando', 'AutoLoginScreen');
       // Navegar al dashboard o pantalla principal
       Navigator.pushReplacementNamed(context, '/dashboard');
     } else {
-      print('😞 UI DEBUG: Login falló, error ya mostrado en UI');
+      Logger.warning('😞 LOGIN DEBUG: Login falló, error ya mostrado en UI', 'AutoLoginScreen');
     }
   }
 
@@ -187,12 +190,13 @@ class _AutoLoginScreenState extends ConsumerState<AutoLoginScreen> {
 
               // Botón de login
               SizedBox(
-                height: 48,
+                height: 40.h,
                 child: ElevatedButton(
                   onPressed: authState.isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1E5AA8),
                     foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
                   ),
                   child: authState.isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
@@ -207,7 +211,7 @@ class _AutoLoginScreenState extends ConsumerState<AutoLoginScreen> {
                 children: [
                   TextButton(
                     onPressed: () {
-                      // TODO: Implementar recuperación de contraseña
+                      // NOTE: Password recovery functionality to be implemented
                     },
                     child: const Text(
                       '¿Olvidó su contraseña?',

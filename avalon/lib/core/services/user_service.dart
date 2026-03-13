@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/logger.dart';
 
 /// Modelo de Usuario para la tabla usuarios
 class AppUser {
@@ -87,14 +88,14 @@ class UserService {
     String rol = 'user',
   }) async {
     try {
-      print('🔍 DEBUG: Intentando crear usuario...');
-      print('📧 Email: $email');
-      print('👤 Nombre: $nombre');
-      print('🔐 Rol: $rol');
-      print('📱 Device ID: ${deviceId ?? "NO PROPORCIONADO"}');
+      Logger.debug('Intentando crear usuario...', 'UserService');
+      Logger.debug('Email: $email', 'UserService');
+      Logger.debug('Nombre: $nombre', 'UserService');
+      Logger.debug('Rol: $rol', 'UserService');
+      Logger.debug('Device ID: ${deviceId ?? "NO PROPORCIONADO"}', 'UserService');
 
       // Primero, verificar si hay licencia disponible para este correo
-      print('🔍 DEBUG: Buscando licencia disponible para email: $email');
+      Logger.debug('Buscando licencia disponible para email: $email', 'UserService');
       
       // Buscar licencia activa sin asignar
       final licensesResponse = await _client
@@ -104,21 +105,21 @@ class UserService {
           .eq('activa', true);
 
       final licenses = licensesResponse as List;
-      print('📋 DEBUG: Licencias encontradas: ${licenses.length}');
+      Logger.debug('Licencias encontradas: ${licenses.length}', 'UserService');
       
       // Buscar licencia sin usuario_id asignado
       final availableLicense = licenses.isEmpty ? null : 
         licenses.firstWhere((license) => license['usuario_id'] == null);
 
-      print('📋 DEBUG: Licencia disponible: $availableLicense');
+      Logger.debug('Licencia disponible: $availableLicense', 'UserService');
 
       if (availableLicense == null) {
-        print('❌ ERROR: No hay licencia disponible para este email');
+        Logger.error('No hay licencia disponible para este email', 'UserService');
         return AuthResponse.error('No se puede registrar: no hay una licencia disponible asociada a este correo. Contacte al administrador.');
       }
 
       // Verificar si el email ya existe en usuarios
-      print('🔍 DEBUG: Verificando si email ya existe...');
+      Logger.debug('Verificando si email ya existe...', 'UserService');
       final existingUser = await _client
           .from('usuarios')
           .select('id')
@@ -126,11 +127,11 @@ class UserService {
           .maybeSingle();
 
       if (existingUser != null) {
-        print('❌ ERROR: Email ya registrado');
+        Logger.error('Email ya registrado', 'UserService');
         return AuthResponse.error('El email ya está registrado');
       }
 
-      print('✅ DEBUG: Licencia disponible y email único, creando usuario...');
+      Logger.debug('Licencia disponible y email único, creando usuario...', 'UserService');
       
       // Crear usuario y vincular licencia
       final userData = {
@@ -140,10 +141,10 @@ class UserService {
         'rol': rol,
         'activa': true,
         'licencia_id': availableLicense['id'], // Vincular licencia inmediatamente
-        if (deviceId != null) 'device_id': deviceId,  // Agregar device_id si se proporciona
+        if (deviceId?.isNotEmpty ?? false) 'device_id': deviceId,  // Agregar device_id si se proporciona
       };
 
-      print('📝 DEBUG: Datos a insertar: ${userData.keys.toList()}');
+      Logger.debug('Datos a insertar: ${userData.keys.toList()}', 'UserService');
 
       final response = await _client
           .from('usuarios')
@@ -151,31 +152,25 @@ class UserService {
           .select()
           .single();
 
-      print('📋 DEBUG: Respuesta de Supabase: $response');
+      Logger.debug('Respuesta de Supabase: $response', 'UserService');
 
-      if (response != null) {
-        // Actualizar licencia para marcarla como asignada
-        await _client
-            .from('licencias')
-            .update({
-              'usuario_id': response['id'],
-              'fecha_activacion': DateTime.now().toIso8601String(),
-            })
-            .eq('id', availableLicense['id']);
+      // Actualizar licencia para marcarla como asignada
+      await _client
+          .from('licencias')
+          .update({
+            'usuario_id': response['id'],
+            'fecha_activacion': DateTime.now().toIso8601String(),
+          })
+          .eq('id', availableLicense['id']);
 
-        print('✅ SUCCESS: Licencia asignada a usuario');
-        print('📋 DEBUG: Licencia actualizada - Usuario ID: ${response['id']}, Licencia ID: ${availableLicense['id']}');
-        
-        final user = AppUser.fromJson(response);
-        print('✅ SUCCESS: Usuario creado con ID: ${user.id}');
-        return AuthResponse.success(user);
-      } else {
-        print('❌ ERROR: Error al crear el usuario');
-        return AuthResponse.error('Error al crear el usuario');
-      }
+      Logger.info('Licencia asignada a usuario', 'UserService');
+      Logger.debug('Licencia actualizada - Usuario ID: ${response['id']}, Licencia ID: ${availableLicense['id']}', 'UserService');
+      
+      final user = AppUser.fromJson(response);
+      Logger.info('Usuario creado con ID: ${user.id}', 'UserService');
+      return AuthResponse.success(user);
     } catch (e) {
-      print('💥 CATCH ERROR: Error creando usuario: $e');
-      print('🔧 STACK TRACE: ${StackTrace.current}');
+      Logger.error('Error creando usuario: $e', 'UserService', e, StackTrace.current);
       return AuthResponse.error('Error: $e');
     }
   }
@@ -186,12 +181,12 @@ class UserService {
     required String password,
   }) async {
     try {
-      print('🔍 DEBUG: Intentando autenticar usuario...');
-      print('📧 Email: $email');
-      print('🔐 Password: ${password.isNotEmpty ? "***PROVIDED***" : "EMPTY"}');
+      Logger.debug('Intentando autenticar usuario...', 'UserService');
+      Logger.debug('Email: $email', 'UserService');
+      Logger.debug('Password: ${password.isNotEmpty ? "***PROVIDED***" : "EMPTY"}', 'UserService');
 
       // Buscar usuario por email
-      print('🔍 DEBUG: Buscando usuario en tabla usuarios...');
+      Logger.debug('Buscando usuario en tabla usuarios...', 'UserService');
       final userData = await _client
           .from('usuarios')
           .select()
@@ -200,31 +195,30 @@ class UserService {
           .eq('activa', true)
           .maybeSingle();
 
-      print('📋 DEBUG: Respuesta de Supabase: $userData');
+      Logger.debug('Respuesta de Supabase: $userData', 'UserService');
 
       if (userData != null) {
         final user = AppUser.fromJson(userData);
-        print('✅ SUCCESS: Usuario encontrado - ID: ${user.id}, Email: ${user.email}');
+        Logger.info('Usuario encontrado - ID: ${user.id}, Email: ${user.email}', 'UserService');
         
         // Verificar si tiene licencia activa
-        print('🔍 DEBUG: Verificando licencia activa...');
+        Logger.debug('Verificando licencia activa...', 'UserService');
         final hasActiveLicense = await checkActiveLicense(user.id);
-        print('📋 DEBUG: ¿Tiene licencia activa? $hasActiveLicense');
+        Logger.debug('¿Tiene licencia activa? $hasActiveLicense', 'UserService');
         
         if (!hasActiveLicense) {
-          print('❌ ERROR: Usuario no tiene licencia activa');
+          Logger.error('Usuario no tiene licencia activa', 'UserService');
           return AuthResponse.error('El usuario no tiene una licencia activa. Contacte al administrador.');
         }
         
-        print('✅ SUCCESS: Usuario con licencia activa - Acceso permitido');
+        Logger.info('Usuario con licencia activa - Acceso permitido', 'UserService');
         return AuthResponse.success(user);
       } else {
-        print('❌ ERROR: Credenciales incorrectas o usuario inactivo');
+        Logger.error('Credenciales incorrectas o usuario inactivo', 'UserService');
         return AuthResponse.error('Credenciales incorrectas o usuario inactivo');
       }
     } catch (e) {
-      print('💥 CATCH ERROR: Error autenticando usuario: $e');
-      print('🔧 STACK TRACE: ${StackTrace.current}');
+      Logger.error('Error autenticando usuario: $e', 'UserService', e, StackTrace.current);
       return AuthResponse.error('Error: $e');
     }
   }
@@ -232,7 +226,7 @@ class UserService {
   /// Verificar si el usuario tiene una licencia activa
   Future<bool> checkActiveLicense(String userId) async {
     try {
-      print('🔍 DEBUG: Verificando licencia para usuario: $userId');
+      Logger.debug('Verificando licencia para usuario: $userId', 'UserService');
       
       // Buscar licencia activa para este usuario
       final licenseData = await _client
@@ -242,30 +236,30 @@ class UserService {
           .eq('activa', true)
           .maybeSingle();
 
-      print('📋 DEBUG: Datos de licencia: $licenseData');
+      Logger.debug('Datos de licencia: $licenseData', 'UserService');
       
       if (licenseData == null) {
-        print('❌ DEBUG: No se encontró licencia activa');
+        Logger.debug('No se encontró licencia activa', 'UserService');
         return false;
       }
 
       // Verificar que la licencia no esté expirada
-      final expirationDate = licenseData?['fecha_expiracion'];
+      final expirationDate = licenseData['fecha_expiracion'];
       if (expirationDate != null) {
         final expDate = DateTime.parse(expirationDate);
         if (expDate.isBefore(DateTime.now())) {
-          print('❌ DEBUG: Licencia expirada - Expira: $expDate');
+          Logger.debug('Licencia expirada - Expira: $expDate', 'UserService');
           return false;
         }
-        print('✅ DEBUG: Licencia válida - Expira: $expDate');
+        Logger.debug('Licencia válida - Expira: $expDate', 'UserService');
       } else {
-        print('⚠️ DEBUG: Licencia sin fecha de expiración (permanente)');
+        Logger.debug('Licencia sin fecha de expiración (permanente)', 'UserService');
       }
 
-      print('✅ DEBUG: Licencia activa verificada');
+      Logger.debug('Licencia activa verificada', 'UserService');
       return true;
     } catch (e) {
-      print('💥 CATCH ERROR: Error verificando licencia: $e');
+      Logger.error('Error verificando licencia: $e', 'UserService');
       return false;
     }
   }
@@ -276,7 +270,7 @@ class UserService {
     required String licenseKey,
   }) async {
     try {
-      print('🔧 DEBUG: Asignando licencia existente $licenseKey a usuario $userId');
+      Logger.debug('Asignando licencia existente $licenseKey a usuario $userId', 'UserService');
       
       // Buscar licencia existente
       final licenseData = await _client
@@ -287,7 +281,7 @@ class UserService {
           .maybeSingle();
 
       if (licenseData == null) {
-        print('❌ DEBUG: Licencia no existe o no está activa');
+        Logger.debug('Licencia no existe o no está activa', 'UserService');
         return false;
       }
 
@@ -297,10 +291,10 @@ class UserService {
           .update({'licencia_id': licenseData['id']})
           .eq('id', userId);
 
-      print('✅ DEBUG: Licencia existente asignada exitosamente');
+      Logger.debug('Licencia existente asignada exitosamente', 'UserService');
       return true;
     } catch (e) {
-      print('💥 CATCH ERROR: Error asignando licencia existente: $e');
+      Logger.error('Error asignando licencia existente: $e', 'UserService');
       return false;
     }
   }
@@ -319,7 +313,7 @@ class UserService {
       }
       return null;
     } catch (e) {
-      print('Error obteniendo usuario: $e');
+      Logger.error('Error obteniendo usuario: $e', 'UserService');
       return null;
     }
   }
@@ -333,7 +327,7 @@ class UserService {
           .eq('id', userId);
       return true;
     } catch (e) {
-      print('Error actualizando usuario: $e');
+      Logger.error('Error actualizando usuario: $e', 'UserService');
       return false;
     }
   }
@@ -347,7 +341,7 @@ class UserService {
           .eq('id', userId);
       return true;
     } catch (e) {
-      print('Error desactivando usuario: $e');
+      Logger.error('Error desactivando usuario: $e', 'UserService');
       return false;
     }
   }
@@ -361,7 +355,7 @@ class UserService {
           .eq('id', userId);
       return true;
     } catch (e) {
-      print('Error asignando licencia: $e');
+      Logger.error('Error asignando licencia: $e', 'UserService');
       return false;
     }
   }
@@ -376,7 +370,7 @@ class UserService {
 
       return userData.map((data) => AppUser.fromJson(data)).toList();
     } catch (e) {
-      print('Error obteniendo usuarios: $e');
+      Logger.error('Error obteniendo usuarios: $e', 'UserService');
       return [];
     }
   }

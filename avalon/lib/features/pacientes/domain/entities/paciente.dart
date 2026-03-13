@@ -2,25 +2,39 @@ class Paciente {
   final String id;
   final String nombre;
   final String email;
-  final String? numeroDocumento;
+  final String numeroDocumento;
   final String? telefono;
-  final String? direccion;
   final DateTime? fechaNacimiento;
+  final String? direccion;
   final String? historialMedico;
-  final DateTime fechaRegistro;
   final bool activo;
+  final DateTime fechaRegistro;
+  final DateTime? fechaActualizacion;
+  final String? licenciaId;
+  final String? deviceId;
+  final String? creadoPor;
+  final Map<String, dynamic>? metadata;
+  final String? objetivosTerapeuticos;
+  final String? progreso;
 
   const Paciente({
     required this.id,
     required this.nombre,
     required this.email,
-    this.numeroDocumento,
+    required this.numeroDocumento,
     this.telefono,
-    this.direccion,
     this.fechaNacimiento,
+    this.direccion,
     this.historialMedico,
-    required this.fechaRegistro,
     this.activo = true,
+    required this.fechaRegistro,
+    this.fechaActualizacion,
+    this.licenciaId,
+    this.deviceId,
+    this.creadoPor,
+    this.metadata,
+    this.objetivosTerapeuticos,
+    this.progreso,
   });
 
   Paciente copyWith({
@@ -32,8 +46,15 @@ class Paciente {
     String? direccion,
     DateTime? fechaNacimiento,
     String? historialMedico,
-    DateTime? fechaRegistro,
     bool? activo,
+    DateTime? fechaRegistro,
+    DateTime? fechaActualizacion,
+    String? licenciaId,
+    String? deviceId,
+    String? creadoPor,
+    Map<String, dynamic>? metadata,
+    String? objetivosTerapeuticos,
+    String? progreso,
   }) {
     return Paciente(
       id: id ?? this.id,
@@ -44,8 +65,15 @@ class Paciente {
       direccion: direccion ?? this.direccion,
       fechaNacimiento: fechaNacimiento ?? this.fechaNacimiento,
       historialMedico: historialMedico ?? this.historialMedico,
-      fechaRegistro: fechaRegistro ?? this.fechaRegistro,
       activo: activo ?? this.activo,
+      fechaRegistro: fechaRegistro ?? this.fechaRegistro,
+      fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
+      licenciaId: licenciaId ?? this.licenciaId,
+      deviceId: deviceId ?? this.deviceId,
+      creadoPor: creadoPor ?? this.creadoPor,
+      metadata: metadata ?? this.metadata,
+      objetivosTerapeuticos: objetivosTerapeuticos ?? this.objetivosTerapeuticos,
+      progreso: progreso ?? this.progreso,
     );
   }
 
@@ -54,14 +82,24 @@ class Paciente {
       id: json['id'] as String,
       nombre: json['nombre'] as String,
       email: json['email'] as String,
+      numeroDocumento: json['numero_documento']?.toString() ?? '',
       telefono: json['telefono'] as String?,
-      direccion: json['direccion'] as String?,
       fechaNacimiento: json['fecha_nacimiento'] != null
           ? DateTime.parse(json['fecha_nacimiento'] as String)
           : null,
+      direccion: json['direccion'] as String?,
       historialMedico: json['historial_medico'] as String?,
-      fechaRegistro: DateTime.parse(json['fecha_registro'] as String),
       activo: json['activo'] as bool? ?? true,
+      fechaRegistro: DateTime.parse(json['fecha_registro'] as String),
+      fechaActualizacion: json['fecha_actualizacion'] != null
+          ? DateTime.parse(json['fecha_actualizacion'] as String)
+          : null,
+      licenciaId: json['licencia_id'] as String?,
+      deviceId: json['device_id'] as String?,
+      creadoPor: json['creado_por'] as String?,
+      metadata: json['metadata'] as Map<String, dynamic>?,
+      objetivosTerapeuticos: json['objetivos_terapeuticos'] as String?,
+      progreso: json['progreso'] as String?,
     );
   }
 
@@ -70,12 +108,20 @@ class Paciente {
       'id': id,
       'nombre': nombre,
       'email': email,
+      'numero_documento': numeroDocumento,
       'telefono': telefono,
-      'direccion': direccion,
       'fecha_nacimiento': fechaNacimiento?.toIso8601String(),
+      'direccion': direccion,
       'historial_medico': historialMedico,
-      'fecha_registro': fechaRegistro.toIso8601String(),
       'activo': activo,
+      'fecha_registro': fechaRegistro.toIso8601String(),
+      'fecha_actualizacion': fechaActualizacion?.toIso8601String(),
+      'licencia_id': licenciaId,
+      'device_id': deviceId,
+      'creado_por': creadoPor,
+      'metadata': metadata,
+      'objetivos_terapeuticos': objetivosTerapeuticos,
+      'progreso': progreso,
     };
   }
 

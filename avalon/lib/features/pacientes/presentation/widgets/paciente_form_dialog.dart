@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../domain/entities/paciente.dart';
+import '../../../../models/paciente_model.dart';
 
 typedef PacienteSaveCallback = void Function(
   String nombre,
@@ -43,7 +43,7 @@ class _PacienteFormDialogState extends State<PacienteFormDialog> {
     if (widget.paciente != null) {
       _nombreController.text = widget.paciente!.nombre;
       _emailController.text = widget.paciente!.email;
-      _numeroDocumentoController.text = widget.paciente!.numeroDocumento ?? '';
+      _numeroDocumentoController.text = widget.paciente!.numeroDocumento;
       _telefonoController.text = widget.paciente!.telefono ?? '';
       _direccionController.text = widget.paciente!.direccion ?? '';
       _historialMedicoController.text = widget.paciente!.historialMedico ?? '';

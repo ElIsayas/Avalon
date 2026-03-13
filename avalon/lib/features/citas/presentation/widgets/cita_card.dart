@@ -30,13 +30,13 @@ class CitaCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha:0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
         border: Border.all(
-          color: cita.estado.color.withOpacity(0.3),
+          color: cita.estado.color.withValues(alpha:0.3),
           width: 1,
         ),
       ),
@@ -54,7 +54,7 @@ class CitaCard extends StatelessWidget {
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
-                      color: cita.estado.color.withOpacity(0.2),
+                      color: cita.estado.color.withValues(alpha:0.2),
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Text(
@@ -92,8 +92,8 @@ class CitaCard extends StatelessWidget {
                   CircleAvatar(
                     radius: 20.r,
                     backgroundColor: cita.esOnline 
-                        ? Colors.blue.withOpacity(0.2) 
-                        : Colors.green.withOpacity(0.2),
+                        ? Colors.blue.withValues(alpha:0.2) 
+                        : Colors.green.withValues(alpha:0.2),
                     child: Icon(
                       cita.esOnline ? Icons.videocam : Icons.person,
                       color: cita.esOnline ? Colors.blue : Colors.green,

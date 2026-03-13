@@ -159,7 +159,7 @@ class _CitaFormDialogState extends State<CitaFormDialog> {
                         Expanded(
                           child: Text(
                             _fechaHora != null
-                                ? '${_formatDateTime(_fechaHora!)}'
+                                ? _formatDateTime(_fechaHora!)
                                 : 'Seleccionar fecha y hora',
                             style: GoogleFonts.inter(
                               color: _fechaHora != null
@@ -177,7 +177,7 @@ class _CitaFormDialogState extends State<CitaFormDialog> {
 
                 // Duración
                 DropdownButtonFormField<Duration>(
-                  value: _duracion,
+                  initialValue: _duracion,
                   decoration: InputDecoration(
                     labelText: 'Duración',
                     prefixIcon: Icon(Icons.timer),
@@ -202,7 +202,7 @@ class _CitaFormDialogState extends State<CitaFormDialog> {
 
                 // Tipo de Cita
                 DropdownButtonFormField<TipoCita>(
-                  value: _tipoSeleccionado,
+                  initialValue: _tipoSeleccionado,
                   decoration: InputDecoration(
                     labelText: 'Tipo de Cita',
                     prefixIcon: Icon(Icons.category),
@@ -232,7 +232,7 @@ class _CitaFormDialogState extends State<CitaFormDialog> {
                   ),
                   subtitle: Text('Habilitar videoconferencia'),
                   value: _esOnline,
-                  activeColor: Color(0xFF3498DB),
+                  activeThumbColor: Color(0xFF3498DB),
                   onChanged: (value) {
                     setState(() {
                       _esOnline = value;
@@ -343,7 +343,7 @@ class _CitaFormDialogState extends State<CitaFormDialog> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
 
-    if (pickedDate != null) {
+    if (pickedDate != null && mounted) {
       final TimeOfDay? pickedTime = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.fromDateTime(_fechaHora ?? DateTime.now()),
