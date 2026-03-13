@@ -1,10 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/auth_user.dart' as auth;
+import '../../../../core/security/secure_signout_service.dart';
 
 class AuthService {
   final SupabaseClient _client;
+  final SecureSignOutService _secureSignOutService;
 
-  AuthService(this._client);
+  AuthService(this._client) : _secureSignOutService = SecureSignOutService();
 
   /*
   =========================
@@ -353,11 +355,92 @@ class AuthService {
 
   /*
   =========================
-  LOGOUT
+  LOGOUT SEGURO E INDEPENDIENTE
   =========================
   */
-  Future<void> signOut() async {
-    await _client.auth.signOut();
+  Future<void> signOut({
+    bool clearAllData = false,
+    bool keepDeviceInfo = false,
+    String? customLogMessage,
+  }) async {
+    try {
+      // 1. Obtener información del usuario para logging (antes de limpiar)
+      final userInfo = await _secureSignOutService.getStoredUserInfo();
+      final deviceId = userInfo['device_id'];
+      
+      // 2. Ejecutar limpieza local segura (independiente de Supabase)
+      await _secureSignOutService.signOut(
+        clearAllData: clearAllData,
+        keepDeviceInfo: keepDeviceInfo,
+        customLogMessage: customLogMessage,
+      );
+      
+      // 3. Intentar cerrar sesión en Supabase (opcional, no bloqueante)
+      await _signOutFromSupabaseSafely();
+      
+      // 4. Logging final del proceso completo
+      print("✅ SIGNOUT COMPLETO: Todos los datos limpiados exitosamente "
+            "${deviceId != null ? '(device: $deviceId)' : ''}");
+      
+    } catch (e) {
+      // 5. Asegurar que el signOut siempre complete incluso si falla Supabase
+      print("❌ ERROR EN SIGNOUT: $e");
+      
+      // Forzar limpieza local de emergencia si algo falla
+      try {
+        await _secureSignOutService.signOut(
+          clearAllData: true,
+          customLogMessage: 'Emergency signOut after error',
+        );
+        print("🔧 LIMPIEZA DE EMERGENCIA COMPLETADA");
+      } catch (emergencyError) {
+        print("🚨 ERROR CRÍTICO EN LIMPIEZA: $emergencyError");
+      }
+      
+      // No relanzar excepción para no bloquear el flujo de logout
+      // La UI debe navegar al login independientemente de errores
+    }
+  }
+
+  /// Método auxiliar para cerrar sesión en Supabase de forma segura
+  Future<void> _signOutFromSupabaseSafely() async {
+    try {
+      await _client.auth.signOut();
+      print("📡 Sesión Supabase cerrada exitosamente");
+    } catch (e) {
+      print("⚠️ Error cerrando sesión en Supabase: $e");
+      // No lanzar excepción - el logout local ya se completó
+    }
+  }
+
+  /// Método de signOut completo que limpia todo (para casos críticos)
+  Future<void> signOutCompletely({String? reason}) async {
+    await signOut(
+      clearAllData: true,
+      keepDeviceInfo: false,
+      customLogMessage: reason ?? 'Complete signOut requested',
+    );
+  }
+
+  /// Método para verificar si hay datos de sesión activos
+  Future<bool> hasActiveSession() async {
+    try {
+      // Verificar sesión local
+      final hasLocalSession = await _secureSignOutService.isUserLoggedIn();
+      
+      // Verificar sesión Supabase
+      final hasSupabaseSession = _client.auth.currentUser != null;
+      
+      return hasLocalSession || hasSupabaseSession;
+    } catch (e) {
+      print("Error verificando sesión activa: $e");
+      return false;
+    }
+  }
+
+  /// Método para obtener información del dispositivo actual
+  Future<String?> getCurrentDeviceId() async {
+    return await _secureSignOutService.getCurrentDeviceId();
   }
 
   /*
