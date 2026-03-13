@@ -1,2 +1,0 @@
-# Avalon
-App de psicologia 
