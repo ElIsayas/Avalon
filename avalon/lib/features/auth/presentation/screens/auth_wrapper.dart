@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/user_auth_provider.dart';
+import '../providers/auth_provider.dart';
 import 'auto_login_screen.dart';
 import '../../../dashboard/presentation/screens/dashboard_screen.dart';
 
@@ -15,14 +15,16 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   @override
   void initState() {
     super.initState();
+    // Inicializar autenticación después del build
     Future.microtask(() {
-      ref.read(userAuthProvider.notifier).clearError();
+      ref.read(authProvider.notifier).initializeAuth();
+      ref.read(authProvider.notifier).clearError();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(userAuthProvider);
+    final authState = ref.watch(authProvider);
 
     // Mientras carga, mostrar splash
     if (authState.isLoading) {

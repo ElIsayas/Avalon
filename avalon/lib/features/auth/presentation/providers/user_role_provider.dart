@@ -54,8 +54,9 @@ final userRoleInfoProvider = Provider<Map<String, dynamic>>((ref) {
         'icon': Icons.admin_panel_settings,
       };
     case 'psicologo':
+    case 'user':
       return {
-        'role': 'psicologo',
+        'role': user.rol, // Keep the original role ('psicologo' or 'user')
         'displayName': 'Psicólogo',
         'isAdmin': false,
         'isPsicologo': true,

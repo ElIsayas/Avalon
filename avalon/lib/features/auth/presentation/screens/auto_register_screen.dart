@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/user_auth_provider.dart';
-import 'auto_login_screen.dart';
+import '../providers/auth_provider.dart';
 import '../../../../core/utils/logger.dart';
+import 'auto_login_screen.dart';
 
 class AutoRegisterScreen extends ConsumerStatefulWidget {
   const AutoRegisterScreen({super.key});
@@ -58,16 +58,19 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
     Logger.debug('📝 UI DEBUG: Datos del formulario - Nombre: $nombre, Email: $email, Password: ${password.isNotEmpty ? "***" : "EMPTY"}', 'AutoRegisterScreen');
     Logger.debug('📱 UI DEBUG: Device ID: ${deviceId ?? "NO PROPORCIONADO"}', 'AutoRegisterScreen');
 
-    final success = await ref.read(userAuthProvider.notifier).createUser(
-      nombre: nombre,
+    await ref.read(authProvider.notifier).signUp(
       email: email,
       password: password,
-      deviceId: deviceId,  // Pasar deviceId opcional
+      nombre: nombre,
+      licenseKey: '', // Licencia vacía por ahora
     );
 
-    Logger.debug('📊 UI DEBUG: Resultado del registro - Success: $success', 'AutoRegisterScreen');
+    Logger.debug('📊 UI DEBUG: Registro completado, verificando estado', 'AutoRegisterScreen');
 
-    if (success && mounted) {
+    // Esperar un momento para que el estado se actualice
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (mounted && ref.read(authProvider).isAuthenticated) {
       Logger.info('🎉 UI DEBUG: Registro exitoso, mostrando SnackBar y navegando', 'AutoRegisterScreen');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -76,7 +79,7 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
         ),
       );
       // Navegar al login o dashboard
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushReplacementNamed(context, '/dashboard');
     } else {
       Logger.warning('😞 UI DEBUG: Registro falló, error ya mostrado en UI', 'AutoRegisterScreen');
     }
@@ -84,7 +87,7 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(userAuthProvider);
+    final authState = ref.watch(authProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -281,7 +284,7 @@ class _AutoRegisterScreenState extends ConsumerState<AutoRegisterScreen> {
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const AutoLoginScreen()),
+                      MaterialPageRoute(builder: (context) => AutoLoginScreen()),
                     );
                   },
                   child: const Text(

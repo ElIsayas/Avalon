@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../models/paciente_model.dart';
+import '../../domain/entities/paciente.dart';
 import '../../data/paciente_service.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -308,6 +308,10 @@ class PacientesNotifier extends StateNotifier<PacientesState> {
     if (state.error != null || state.successMessage != null) {
       state = state.copyWith(error: null, successMessage: null);
     }
+  }
+
+  void updatePacientes(List<Paciente> pacientes) {
+    state = state.copyWith(pacientes: pacientes);
   }
 }
 

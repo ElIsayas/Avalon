@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../providers/user_auth_provider.dart';
-import 'auto_register_screen.dart';
+import '../providers/auth_provider.dart';
 import '../../../../core/utils/logger.dart';
+import 'auto_register_screen.dart';
 
 class AutoLoginScreen extends ConsumerStatefulWidget {
   const AutoLoginScreen({super.key});
@@ -41,15 +41,18 @@ class _AutoLoginScreenState extends ConsumerState<AutoLoginScreen> {
     Logger.debug('📝 LOGIN DEBUG: Email: $email', 'AutoLoginScreen');
     Logger.debug('🔒 LOGIN DEBUG: Password: ${password.isNotEmpty ? "***" : "EMPTY"}', 'AutoLoginScreen');
 
-    final success = await ref.read(userAuthProvider.notifier).signIn(
-      email: email,
-      password: password,
+    await ref.read(authProvider.notifier).signIn(
+      email,
+      password,
     );
 
-    Logger.debug('� LOGIN DEBUG: Resultado del signIn - Success: $success', 'AutoLoginScreen');
+    Logger.debug('🔄 LOGIN DEBUG: SignIn completado, verificando estado', 'AutoLoginScreen');
 
-    if (success && mounted) {
-      Logger.info('🎉 LOGIN DEBUG: Login exitoso, mostrando SnackBar y navegando', 'AutoLoginScreen');
+    // Esperar un momento para que el estado se actualice
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (mounted && ref.read(authProvider).isAuthenticated) {
+      Logger.info('🎉 LOGIN DEBUG: Login exitoso, navegando al dashboard', 'AutoLoginScreen');
       // Navegar al dashboard o pantalla principal
       Navigator.pushReplacementNamed(context, '/dashboard');
     } else {
@@ -59,7 +62,7 @@ class _AutoLoginScreenState extends ConsumerState<AutoLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(userAuthProvider);
+    final authState = ref.watch(authProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -71,7 +74,7 @@ class _AutoLoginScreenState extends ConsumerState<AutoLoginScreen> {
             IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () {
-                ref.read(userAuthProvider.notifier).signOut();
+                ref.read(authProvider.notifier).clearError();
               },
             ),
         ],
@@ -223,7 +226,7 @@ class _AutoLoginScreenState extends ConsumerState<AutoLoginScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AutoRegisterScreen(),
+                          builder: (context) => AutoRegisterScreen(),
                         ),
                       );
                     },

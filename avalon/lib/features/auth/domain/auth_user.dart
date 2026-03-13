@@ -33,8 +33,8 @@ class AuthUser {
       clinicaNombre: map['clinica_nombre']?.toString(),
       dispositivoId: map['dispositivo_id']?.toString(),
       rol: map['rol']?.toString(),
-      activo: map['activo'] as bool?,
-      fechaRegistro: map['fecha_registro'] != null 
+      activo: map['activo'] == null ? null : map['activo'] is bool ? map['activo'] as bool : map['activo'].toString().toLowerCase() == 'true',
+      fechaRegistro: map['fecha_registro']?.toString() != null 
           ? DateTime.tryParse(map['fecha_registro'].toString()) 
           : null,
     );
@@ -62,16 +62,15 @@ class AuthUser {
   }
 
   @override
-  int get hashCode => id.hashCode;
-
+  int get hashCode => id.hashCode ^ (activo?.hashCode ?? 0);
   @override
   String toString() {
     return 'AuthUser(id: $id, email: $email, nombre: $nombre, rol: $rol)';
   }
 
   // Getters útiles
-  bool get isPsicologo => rol == 'psicologo';
-  bool get isAdministrador => rol == 'admin' || rol == 'administrador';  // Support both variations
+  bool get isPsicologo => rol != null && (rol == 'psicologo' || rol == 'user');  // Support both 'psicologo' and 'user'
+  bool get isAdministrador => rol != null && (rol == 'admin' || rol == 'administrador');  // Support both variations
   bool get isActivo => activo ?? false;
   String get displayName => nombre ?? email;
 }

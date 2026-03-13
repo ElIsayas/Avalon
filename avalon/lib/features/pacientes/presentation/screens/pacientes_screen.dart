@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/paciente_provider.dart';
-import '../widgets/paciente_form_dialog.dart';
+import '../../domain/entities/paciente.dart';
 import '../widgets/paciente_card.dart';
+import '../widgets/paciente_form_dialog.dart';
 import '../widgets/paciente_search_delegate.dart';
-import '../../../../models/paciente_model.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class PacientesScreen extends ConsumerStatefulWidget {
   const PacientesScreen({super.key});
@@ -479,27 +480,33 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
       final result = await service.testDatabaseConnection();
       
       if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Test exitoso: ${result['message']}'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Test exitoso: ${result['message']}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Test fallido: ${result['error']}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Test fallido: ${result['error']}'),
+            content: Text('Error en test: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error en test: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -589,7 +596,7 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildDetailRow('Email', paciente.email),
-              _buildDetailRow('Documento', paciente.numeroDocumento ?? 'No especificado'),
+              _buildDetailRow('Documento', paciente.numeroDocumento),
               _buildDetailRow('Teléfono', paciente.telefono ?? 'No especificado'),
               _buildDetailRow('Dirección', paciente.direccion ?? 'No especificado'),
               _buildDetailRow('Fecha de Nacimiento', _formatDate(paciente.fechaNacimiento)),

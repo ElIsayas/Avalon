@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../models/paciente_model.dart';
+import '../domain/entities/paciente.dart';
 import '../../../core/utils/logger.dart';
-import '../../../core/utils/debug_logger.dart';
 
 class PacienteService {
   final SupabaseClient _supabase;
@@ -61,7 +60,6 @@ class PacienteService {
     try {
       Logger.debug('📋 PACIENTE DEBUG: Iniciando carga de pacientes', 'PacienteService');
       Logger.debug('📋 PACIENTE DEBUG: userId: $userId, userRole: $userRole', 'PacienteService');
-      debugLogger.logDebug('PacienteService', 'Iniciando carga de pacientes', details: 'userId: $userId, userRole: $userRole');
       
       // PRIMERO: Test sin filtros para ver si hay datos
       Logger.debug('📋 PACIENTE DEBUG: Test sin filtros', 'PacienteService');
@@ -80,8 +78,8 @@ class PacienteService {
           .select('*');
       
       // Filter by role: admin sees all, psicologo sees only their patients
-      if (userRole == 'psicologo' && userId != null) {
-        Logger.debug('📋 PACIENTE DEBUG: Aplicando filtro por psicologo, userId: $userId', 'PacienteService');
+      if ((userRole == 'psicologo' || userRole == 'user') && userId != null) {
+        Logger.debug('📋 PACIENTE DEBUG: Aplicando filtro por psicologo/user, userId: $userId', 'PacienteService');
         query = query.eq('creado_por', userId);
       } else if (userRole == 'admin') {
         Logger.debug('📋 PACIENTE DEBUG: Usuario admin, sin filtro', 'PacienteService');
@@ -95,7 +93,6 @@ class PacienteService {
       Logger.debug('📋 PACIENTE DEBUG: Response type: ${response.runtimeType}', 'PacienteService');
       Logger.debug('📋 PACIENTE DEBUG: Response data: $response', 'PacienteService');
       Logger.debug('📋 PACIENTE DEBUG: Response count: ${response.length}', 'PacienteService');
-      debugLogger.logDebug('PacienteService', 'Query ejecutado', details: 'Response type: ${response.runtimeType}');
       
       // Supabase always returns a list, so we can directly map it
       final pacientes = (response as List).map((json) {
@@ -104,12 +101,10 @@ class PacienteService {
       }).toList();
       
       Logger.debug('📋 PACIENTE DEBUG: Pacientes mapeados: ${pacientes.length}', 'PacienteService');
-      debugLogger.logInfo('PacienteService', 'Pacientes cargados exitosamente', details: 'Count: ${pacientes.length}');
       
       return pacientes;
     } catch (e) {
       Logger.error('❌ PACIENTE DEBUG: Error al cargar pacientes: $e', 'PacienteService');
-      debugLogger.logDatabaseError('SELECT', 'pacientes', e, context: {'userId': userId, 'userRole': userRole});
       // Return empty list on error to prevent app crash
       return [];
     }
@@ -283,8 +278,8 @@ class PacienteService {
           .from('pacientes')
           .select('id');
       
-      // Filter by role: admin sees all, psicologo sees only their patients
-      if (userRole == 'psicologo' && userId != null) {
+      // Filter by role: admin sees all, psicologo/user sees only their patients
+      if ((userRole == 'psicologo' || userRole == 'user') && userId != null) {
         query = query.eq('creado_por', userId);
       }
       
@@ -304,7 +299,7 @@ class PacienteService {
           .eq('activo', true);
       
       // Filter by role: admin sees all, psicologo sees only their patients
-      if (userRole == 'psicologo' && userId != null) {
+      if ((userRole == 'psicologo' || userRole == 'user') && userId != null) {
         query = query.eq('creado_por', userId);
       }
       
@@ -312,7 +307,7 @@ class PacienteService {
 
       return response.count;
     } catch (e) {
-      throw Exception('Error al obtener total de pacientes activos: $e');
+      throw Exception('Error al obtener count de pacientes activos: $e');
     }
   }
 

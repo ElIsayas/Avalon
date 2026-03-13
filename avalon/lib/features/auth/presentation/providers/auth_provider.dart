@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/auth_service.dart';
 import '../../domain/auth_user.dart' as auth;
-import '../../../../core/supabase/supabase.dart';
 import '../../../../core/utils/logger.dart';
 
 // Estado de autenticación
@@ -30,28 +30,19 @@ class AuthState {
   }
 
   @override
-  int get hashCode => user.hashCode ^ isLoading.hashCode ^ error.hashCode;
+  int get hashCode => (user?.hashCode ?? 0) ^ isLoading.hashCode ^ (error?.hashCode ?? 0);
+
+  bool get isAuthenticated => user != null;
 }
 
-// Provider del servicio de autenticación
-final authServiceProvider = Provider<AuthService>((ref) {
-  return AuthService(supabase);
-});
-
-// Provider del estado de autenticación
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  return AuthNotifier(authService);
-});
-
-// Notifier para manejar el estado de autenticación
+// Notifier de autenticación
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
 
   AuthNotifier(this._authService) : super(AuthState());
 
-  // Inicializar autenticación manualmente
-  Future<void> initialize() async {
+  // Inicializar sesión desde SharedPreferences
+  Future<void> initializeAuth() async {
     state = state.copyWith(isLoading: true);
     try {
       final user = await _authService.getCurrentUser();
@@ -63,36 +54,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   // Iniciar sesión
   Future<void> signIn(String email, String password) async {
+    Logger.info('🔐 PROVIDER DEBUG: Iniciando signIn', 'AuthNotifier');
+    Logger.info('📧 PROVIDER DEBUG: Email recibido: "$email"', 'AuthNotifier');
+    Logger.info('🔒 PROVIDER DEBUG: Password recibido: "${password.isNotEmpty ? "***" : "EMPTY"}"', 'AuthNotifier');
+    
     state = state.copyWith(isLoading: true, error: null);
     try {
+      Logger.info('🔄 PROVIDER DEBUG: Llamando a authService.signInWithEmailAndPassword', 'AuthNotifier');
       final user = await _authService.signInWithEmailAndPassword(
         email,
         password,
       );
+      
+      // Guardar sesión en SharedPreferences
+      await _authService.saveSession(user);
+      
+      Logger.info('✅ PROVIDER DEBUG: Login exitoso, user: ${user.nombre}', 'AuthNotifier');
+      Logger.info('✅ PROVIDER DEBUG: User rol: ${user.rol}', 'AuthNotifier');
+      Logger.info('✅ PROVIDER DEBUG: User ID: ${user.id}', 'AuthNotifier');
+      
       state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
+      Logger.error('💥 PROVIDER DEBUG: Error en signIn', 'AuthNotifier');
+      Logger.error('💥 PROVIDER DEBUG: Error: $e', 'AuthNotifier');
       String errorMessage = 'Error al iniciar sesión';
 
       // Provide specific error messages based on common authentication errors
-      if (e.toString().contains('Invalid login credentials')) {
+      if (e.toString().contains('Email o contraseña incorrectos')) {
         errorMessage = 'Email o contraseña incorrectos';
-      } else if (e.toString().contains('User not found')) {
+      } else if (e.toString().contains('Usuario no encontrado')) {
         errorMessage = 'No existe una cuenta con este email';
-      } else if (e.toString().contains('Invalid password')) {
-        errorMessage = 'Contraseña incorrecta';
-      } else if (e.toString().contains('Email not confirmed')) {
-        errorMessage = 'Por favor, confirma tu email antes de iniciar sesión';
-      } else if (e.toString().contains('Too many requests')) {
-        errorMessage = 'Demasiados intentos. Por favor, espera unos minutos';
-      } else {
-        errorMessage = 'Email o contraseña incorrectos';
+      } else if (e.toString().contains('inactivo')) {
+        errorMessage = 'Usuario inactivo. Contacte al administrador.';
       }
 
       state = state.copyWith(isLoading: false, error: errorMessage);
     }
   }
 
-  // Registrar usuario con licencia
+  // Registrar usuario
   Future<void> signUp({
     required String email,
     required String password,
@@ -107,36 +107,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
         nombre: nombre,
         licenseKey: licenseKey,
       );
+      
+      // Guardar sesión en SharedPreferences
+      await _authService.saveSession(user);
+      
       state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
-      // Mostrar error real para debugging
-      Logger.error("ERROR REGISTER: $e", 'AuthProvider');
+      String errorMessage = 'Error al registrar usuario';
 
-      String errorMessage = 'Error al crear cuenta';
-
-      // Provide specific error messages based on common registration errors
-      if (e.toString().contains('User already registered')) {
-        errorMessage = 'Ya existe una cuenta con este email';
-      } else if (e.toString().contains('duplicate key')) {
-        errorMessage = 'El número de documento ya está registrado';
-      } else if (e.toString().contains('weak_password')) {
-        errorMessage =
-            'La contraseña es muy débil. Debe tener al menos 6 caracteres';
-      } else if (e.toString().contains('invalid_email')) {
-        errorMessage = 'El email no es válido';
-      } else if (e.toString().contains('Too many requests')) {
-        errorMessage = 'Demasiados intentos. Por favor, espera unos minutos';
+      if (e.toString().contains('duplicate key')) {
+        errorMessage = 'El email ya está registrado';
       } else if (e.toString().contains('Licencia inválida')) {
-        errorMessage = 'La licencia ingresada no es válida';
-      } else if (e.toString().contains('Licencia no activa')) {
-        errorMessage = 'La licencia no está activa. Contacte al administrador';
-      } else if (e.toString().contains('Licencia no vinculada a clínica')) {
-        errorMessage = 'La licencia no está vinculada a ninguna clínica';
-      } else if (e.toString().contains('Límite de usuarios alcanzado')) {
-        errorMessage = e.toString(); // Mostrar el mensaje completo con el límite
-      } else if (e.toString().contains('Usuario desactivado')) {
-        errorMessage = 'Usuario desactivado. Contacte al administrador';
-      } else if (e.toString().contains('Clínica no encontrada')) {
+        errorMessage = 'Licencia inválida o inactiva';
         errorMessage = 'Clínica no encontrada. Contacte al administrador';
       } else if (e.toString().contains('Clínica desactivada')) {
         errorMessage = 'Clínica desactivada. Contacte al administrador';
@@ -228,3 +210,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   // Verificar si puede acceder a funciones de psicólogo
   bool get canAccessPsicologo => isAuthenticated && isPsicologo && isUserActive;
 }
+
+// Provider de autenticación
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService(Supabase.instance.client);
+});
+
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  final authService = ref.watch(authServiceProvider);
+  return AuthNotifier(authService);
+});

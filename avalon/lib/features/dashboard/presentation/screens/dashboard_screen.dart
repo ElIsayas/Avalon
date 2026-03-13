@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
+import '../../../admin/presentation/screens/admin_database_screen.dart';
 import '../../../../shared/widgets/desktop_layout.dart';
 import '../../../../shared/widgets/debug_console.dart';
 
@@ -13,8 +15,12 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final userRoleInfo = ref.watch(userRoleInfoProvider);
     final isAdmin = ref.watch(isAdminProvider);
+    
+    // Debug para verificar valores
+    print('🔍 DASHBOARD DEBUG: authState.user?.rol = ${authState.user?.rol}');
+    print('🔍 DASHBOARD DEBUG: isAdmin = $isAdmin');
+    print('🔍 DASHBOARD DEBUG: authState.user?.isAdministrador = ${authState.user?.isAdministrador}');
 
     // Build desktop-optimized dashboard content
     final dashboardContent = Scaffold(
@@ -83,7 +89,7 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        'Rol: ${userRoleInfo['displayName'] ?? 'Usuario'}',
+                        'Rol: ${isAdmin ? 'Administrador' : 'Psicólogo'}',
                         style: GoogleFonts.poppins(
                           fontSize: 16.sp, // Aumentado de 12 a 16
                           color: Colors.grey[500],
@@ -92,18 +98,36 @@ class DashboardScreen extends ConsumerWidget {
                     ],
                   ),
                   // Botón de logout para todos los usuarios
-                  IconButton(
-                    onPressed: () => _showLogoutDialog(context, ref),
-                    icon: const Icon(Icons.logout),
-                    tooltip: 'Cerrar Sesión',
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.red.withValues(alpha: 0.1),
-                      foregroundColor: Colors.red,
-                      iconSize: 28.w,
-                      padding: EdgeInsets.all(12.w),
-                    ),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => _showLogoutDialog(context, ref),
+                        icon: const Icon(Icons.logout),
+                        tooltip: 'Cerrar Sesión',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.red.withValues(alpha: 0.1),
+                          foregroundColor: Colors.red,
+                          iconSize: 28.w,
+                          padding: EdgeInsets.all(12.w),
+                        ),
+                      ),
+                    ],
                   ),
-                  if (isAdmin)
+                  if (isAdmin) ...[
+                    // Botón de test de credenciales (solo admins)
+                    IconButton(
+                      onPressed: () => _testCredentials(context, ref),
+                      icon: const Icon(Icons.bug_report),
+                      tooltip: 'Test Credenciales',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.orange.withValues(alpha: 0.1),
+                        foregroundColor: Colors.orange,
+                        iconSize: 28.w,
+                        padding: EdgeInsets.all(12.w),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                  ],
                     Row(
                       children: [
                         IconButton(
@@ -158,7 +182,7 @@ class DashboardScreen extends ConsumerWidget {
                         crossAxisCount: isAdmin ? 3 : 2, // Different layout for roles
                         mainAxisSpacing: 24.h, // Aumentado de 16 a 24
                         crossAxisSpacing: 24.w, // Aumentado de 16 a 24
-                        childAspectRatio: 1.2, // Aumentado de 1.0 a 1.2 para tarjetas más grandes
+                        childAspectRatio: isAdmin ? 1.0 : 1.2, // Tarjetas más cuadradas para admin
                         children: isAdmin ? _buildAdminCards(context) : _buildPsicologoCards(context),
                       ),
                     ),
@@ -183,6 +207,17 @@ class DashboardScreen extends ConsumerWidget {
     return [
       _buildQuickActionCard(
         context: context,
+        title: 'Administración BD',
+        subtitle: 'Test conexión y estadísticas',
+        icon: Icons.storage,
+        color: Colors.deepPurple,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => AdminDatabaseScreen()),
+        ),
+      ),
+      _buildQuickActionCard(
+        context: context,
         title: 'Gestión de Usuarios',
         subtitle: 'Administrar psicólogos',
         icon: Icons.admin_panel_settings,
@@ -191,11 +226,19 @@ class DashboardScreen extends ConsumerWidget {
       ),
       _buildQuickActionCard(
         context: context,
-        title: 'Pacientes',
-        subtitle: 'Ver todos los pacientes',
+        title: 'Mis Pacientes',
+        subtitle: 'Ver y gestionar mis pacientes',
         icon: Icons.people,
         color: Colors.blue,
-        onTap: () => Navigator.pushNamed(context, '/pacientes'),
+        onTap: () => Navigator.pushNamed(context, '/mis-pacientes'),
+      ),
+      _buildQuickActionCard(
+        context: context,
+        title: 'Citas',
+        subtitle: 'Gestionar citas',
+        icon: Icons.calendar_today,
+        color: Colors.green,
+        onTap: () => Navigator.pushNamed(context, '/citas'),
       ),
       _buildQuickActionCard(
         context: context,
@@ -204,6 +247,14 @@ class DashboardScreen extends ConsumerWidget {
         icon: Icons.assessment,
         color: Colors.purple,
         onTap: () => Navigator.pushNamed(context, '/reportes'),
+      ),
+      _buildQuickActionCard(
+        context: context,
+        title: 'Configuración',
+        subtitle: 'Ajustes del sistema',
+        icon: Icons.settings,
+        color: Colors.orange,
+        onTap: () => Navigator.pushNamed(context, '/settings'),
       ),
     ];
   }
@@ -430,5 +481,152 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _testCredentials(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Test de Credenciales'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Este botón probará las credenciales directamente con Supabase.'),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  // Test directo con Supabase
+                  final client = Supabase.instance.client;
+                  
+                  print('🧪 TEST DIRECTO: Iniciando test de admin@example.com');
+                  final response = await client.auth.signInWithPassword(
+                    email: 'admin@example.com',
+                    password: 'admin123',
+                  );
+                  
+                  print('✅ TEST DIRECTO: Response recibida');
+                  print('👤 TEST DIRECTO: User: ${response.user?.email}');
+                  print('🆔 TEST DIRECTO: ID: ${response.user?.id}');
+                  
+                  if (response.user != null) {
+                    // Logout inmediato
+                    await client.auth.signOut();
+                    print('🚪 TEST DIRECTO: Logout completado');
+                  }
+                  
+                } catch (e) {
+                  print('❌ TEST DIRECTO: Error: $e');
+                  print('❌ TEST DIRECTO: Error type: ${e.runtimeType}');
+                  
+                  // Si el error es 400, el usuario no existe
+                  if (e.toString().contains('400') || e.toString().contains('Invalid login credentials')) {
+                    print('🔧 USUARIO NO EXISTE - Intentando crear...');
+                    await _createAdminUser();
+                  }
+                }
+              },
+              child: Text('Test Admin Credentials'),
+            ),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: () => _createAdminUser(),
+              child: Text('Crear Usuario Admin'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: () => _testCustomAuth(),
+              child: Text('Test Custom Auth'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createAdminUser() async {
+    try {
+      final client = Supabase.instance.client;
+      
+      print('🔧 CREANDO USUARIO ADMIN EN TABLA USUARIOS...');
+      
+      // Verificar si ya existe
+      final existingUser = await client
+          .from('usuarios')
+          .select()
+          .eq('email', 'admin@example.com')
+          .maybeSingle();
+          
+      if (existingUser != null) {
+        print('✅ Usuario admin ya existe en tabla usuarios');
+        print('� Usuario listo para usar!');
+        return;
+      }
+      
+      // Crear usuario en tabla usuarios
+      await client.from('usuarios').insert({
+        'nombre': 'Administrador',
+        'email': 'admin@example.com',
+        'password': 'admin123',
+        'rol': 'admin',
+        'activa': true,
+        'licencia_id': '1',
+        'device_id': null,
+        'especialidad': null,
+        'disponibilidad': true,
+        'fecha_registro': DateTime.now().toIso8601String(),
+      });
+      
+      print('✅ Usuario admin creado en tabla usuarios');
+      print('🎉 USUARIO ADMIN CREADO EXITOSAMENTE');
+      print('📧 Ahora puedes hacer login con: admin@example.com / admin123');
+      
+    } catch (e) {
+      print('❌ Error creando usuario admin: $e');
+      print('❌ Error type: ${e.runtimeType}');
+    }
+  }
+
+  Future<void> _testCustomAuth() async {
+    try {
+      final client = Supabase.instance.client;
+      
+      print('🔐 TESTING CUSTOM AUTH...');
+      
+      // Test login personalizado
+      final response = await client
+          .from('usuarios')
+          .select()
+          .eq('email', 'admin@example.com')
+          .eq('password', 'admin123')
+          .eq('activa', true)
+          .maybeSingle();
+      
+      if (response != null) {
+        print('✅ Custom Auth exitoso:');
+        print('   - Nombre: ${response['nombre']}');
+        print('   - Rol: ${response['rol']}');
+        print('   - Activo: ${response['activa']}');
+      } else {
+        print('❌ Custom Auth falló - Usuario no encontrado');
+      }
+      
+    } catch (e) {
+      print('❌ Error en test custom auth: $e');
+    }
   }
 }
