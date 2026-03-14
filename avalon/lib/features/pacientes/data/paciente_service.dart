@@ -1,73 +1,81 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/paciente.dart';
-import '../../../core/constants/app_constants.dart';
+import '../../../../core/utils/logger.dart';
+// Acceso mediado 100% por RPCs — sin acceso directo a tablas
 
 class PacienteService {
   final SupabaseClient _client;
-  PacienteService(this._client);
+  final String _token;
+
+  PacienteService(this._client, this._token);
 
   // ── LECTURA ───────────────────────────────────────────────────────────────
-  // RLS filtra automáticamente: admin ve todos, user solo los suyos
+
   Future<List<Paciente>> getAll() async {
-    final res = await _client
-        .from(AppConstants.tablePacientes)
-        .select()
-        .order('fecha_registro', ascending: false);
-    return res.map((j) => Paciente.fromJson(j)).toList();
+    AppLogger.database('Obteniendo todos los pacientes');
+    try {
+      final res = await _client.rpc('get_pacientes', params: {'p_token': _token});
+      final pacientes = (res as List).map((j) => Paciente.fromJson(j as Map<String, dynamic>)).toList();
+      AppLogger.database('Pacientes obtenidos: ${pacientes.length}');
+      return pacientes;
+    } catch (e, stackTrace) {
+      AppLogger.database('Error obteniendo pacientes: $e', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 
   Future<List<Paciente>> buscar(String query) async {
-    final res = await _client
-        .from(AppConstants.tablePacientes)
-        .select()
-        .or('nombre.ilike.%$query%,email.ilike.%$query%,numero_documento.ilike.%$query%,telefono.ilike.%$query%')
-        .order('nombre');
-    return res.map((j) => Paciente.fromJson(j)).toList();
-  }
-
-  Future<Paciente> getById(String id) async {
-    final res = await _client
-        .from(AppConstants.tablePacientes)
-        .select()
-        .eq('id', id)
-        .single();
-    return Paciente.fromJson(res);
+    AppLogger.database('Buscando pacientes con query: $query');
+    try {
+      final res = await _client.rpc('buscar_pacientes', params: {
+        'p_token': _token,
+        'p_query': query,
+      });
+      final pacientes = (res as List).map((j) => Paciente.fromJson(j as Map<String, dynamic>)).toList();
+      AppLogger.database('Búsqueda completada: ${pacientes.length} resultados');
+      return pacientes;
+    } catch (e, stackTrace) {
+      AppLogger.database('Error en búsqueda de pacientes: $e', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 
   // ── ESCRITURA ─────────────────────────────────────────────────────────────
+
   Future<Paciente> crear({
     required String nombre,
     required String email,
     required String numeroDocumento,
-    required String creadoPor, // public.usuarios.id del usuario autenticado
     String? telefono,
     String? direccion,
     DateTime? fechaNacimiento,
     String? historialMedico,
     String? objetivosTerapeuticos,
   }) async {
-    final data = <String, dynamic>{
-      'nombre':           nombre,
-      'email':            email,
-      'numero_documento': numeroDocumento,
-      'creado_por':       creadoPor,
-      'activo':           true,
-      'fecha_registro':   DateTime.now().toIso8601String(),
-      'fecha_actualizacion': DateTime.now().toIso8601String(),
-    };
+    AppLogger.database('Creando paciente: $nombre, email: $email');
+    
+    try {
+      final params = <String, dynamic>{
+        'p_token':            _token,
+        'p_nombre':           nombre,
+        'p_email':            email,
+        'p_numero_documento': numeroDocumento,
+      };
+      if (telefono != null)              params['p_telefono']               = telefono;
+      if (direccion != null)             params['p_direccion']              = direccion;
+      if (historialMedico != null)       params['p_historial_medico']       = historialMedico;
+      if (objetivosTerapeuticos != null) params['p_objetivos_terapeuticos'] = objetivosTerapeuticos;
+      if (fechaNacimiento != null)       params['p_fecha_nacimiento']       = fechaNacimiento.toIso8601String().split('T')[0];
 
-    if (telefono?.isNotEmpty ?? false)     data['telefono']    = telefono;
-    if (direccion?.isNotEmpty ?? false)    data['direccion']   = direccion;
-    if (historialMedico?.isNotEmpty ?? false) data['historial_medico'] = historialMedico;
-    if (objetivosTerapeuticos?.isNotEmpty ?? false) data['objetivos_terapeuticos'] = objetivosTerapeuticos;
-    if (fechaNacimiento != null) data['fecha_nacimiento'] = fechaNacimiento.toIso8601String().split('T')[0];
-
-    final res = await _client
-        .from(AppConstants.tablePacientes)
-        .insert(data)
-        .select()
-        .single();
-    return Paciente.fromJson(res);
+      final res   = await _client.rpc('crear_paciente', params: params);
+      final lista = res as List;
+      final paciente = Paciente.fromJson(lista.first as Map<String, dynamic>);
+      AppLogger.database('Paciente creado exitosamente: ${paciente.id}');
+      return paciente;
+    } catch (e, stackTrace) {
+      AppLogger.database('Error creando paciente: $e', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 
   Future<Paciente> actualizar({
@@ -82,36 +90,45 @@ class PacienteService {
     String? objetivosTerapeuticos,
     bool? activo,
   }) async {
-    final data = <String, dynamic>{
-      'fecha_actualizacion': DateTime.now().toIso8601String(),
-    };
-    if (nombre != null)                data['nombre']           = nombre;
-    if (email != null)                 data['email']            = email;
-    if (numeroDocumento != null)       data['numero_documento'] = numeroDocumento;
-    if (telefono != null)              data['telefono']         = telefono;
-    if (direccion != null)             data['direccion']        = direccion;
-    if (historialMedico != null)       data['historial_medico'] = historialMedico;
-    if (objetivosTerapeuticos != null) data['objetivos_terapeuticos'] = objetivosTerapeuticos;
-    if (activo != null)                data['activo']           = activo;
-    if (fechaNacimiento != null)       data['fecha_nacimiento'] = fechaNacimiento.toIso8601String().split('T')[0];
+    final params = <String, dynamic>{'p_token': _token, 'p_id': id};
+    if (nombre != null)                params['p_nombre']                = nombre;
+    if (email != null)                 params['p_email']                 = email;
+    if (numeroDocumento != null)       params['p_numero_documento']      = numeroDocumento;
+    if (telefono != null)              params['p_telefono']              = telefono;
+    if (direccion != null)             params['p_direccion']             = direccion;
+    if (historialMedico != null)       params['p_historial_medico']      = historialMedico;
+    if (objetivosTerapeuticos != null) params['p_objetivos_terapeuticos']= objetivosTerapeuticos;
+    if (activo != null)                params['p_activo']                = activo;
+    if (fechaNacimiento != null)       params['p_fecha_nacimiento']      = fechaNacimiento.toIso8601String().split('T')[0];
 
-    final res = await _client
-        .from(AppConstants.tablePacientes)
-        .update(data)
-        .eq('id', id)
-        .select()
-        .single();
-    return Paciente.fromJson(res);
+    final res   = await _client.rpc('actualizar_paciente', params: params);
+    final lista = res as List;
+    return Paciente.fromJson(lista.first as Map<String, dynamic>);
   }
 
   Future<void> eliminar(String id) async {
-    await _client.from(AppConstants.tablePacientes).delete().eq('id', id);
+    AppLogger.database('Eliminando paciente: $id');
+    try {
+      await _client.rpc('eliminar_paciente', params: {'p_token': _token, 'p_id': id});
+      AppLogger.database('Paciente eliminado exitosamente');
+    } catch (e, stackTrace) {
+      AppLogger.database('Error eliminando paciente: $e', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 
   Future<void> toggleActivo(String id, bool activo) async {
-    await _client.from(AppConstants.tablePacientes).update({
-      'activo': activo,
-      'fecha_actualizacion': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    AppLogger.database('Cambiando estado activo del paciente $id a: $activo');
+    try {
+      await _client.rpc('actualizar_paciente', params: {
+        'p_token':  _token,
+        'p_id':     id,
+        'p_activo': activo,
+      });
+      AppLogger.database('Estado del paciente actualizado exitosamente');
+    } catch (e, stackTrace) {
+      AppLogger.database('Error actualizando estado del paciente: $e', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 }

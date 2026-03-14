@@ -2,62 +2,80 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/auth_service.dart';
 import '../../domain/app_user.dart';
+import '../../../../core/utils/logger.dart';
 
-// ── SERVICIO ─────────────────────────────────────────────────────────────────
+// ── SERVICIO ──────────────────────────────────────────────────────────────────
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(Supabase.instance.client);
 });
 
-// ── ESTADO ───────────────────────────────────────────────────────────────────
+// ── ESTADO ────────────────────────────────────────────────────────────────────
 class AuthState {
   final AppUser? user;
   final bool isLoading;
   final String? error;
 
-  const AuthState({this.user, this.isLoading = false, this.error});
+  const AuthState({
+    this.user,
+    this.isLoading = false,
+    this.error,
+  });
 
-  AuthState copyWith({AppUser? user, bool? isLoading, String? error, bool clearUser = false}) {
+  AuthState copyWith({
+    AppUser? user,
+    bool? isLoading,
+    String? error,
+    bool clearUser  = false,
+    bool clearError = false,
+  }) {
     return AuthState(
-      user:      clearUser ? null : user ?? this.user,
+      user:      clearUser  ? null  : user      ?? this.user,
       isLoading: isLoading ?? this.isLoading,
-      error:     error,
+      error:     clearError ? null  : error     ?? this.error,
     );
   }
 
   bool get isAuthenticated => user != null;
   bool get isAdmin         => user?.isAdmin ?? false;
+  bool get isPsicologo     => user?.isPsicologo ?? false;
 }
 
-// ── NOTIFIER ─────────────────────────────────────────────────────────────────
+// ── NOTIFIER ──────────────────────────────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _service;
+
   AuthNotifier(this._service) : super(const AuthState());
 
-  // Recuperar sesión al abrir la app
+  // Llamado por AuthWrapper al iniciar la app
+  // Verifica si el token guardado localmente sigue siendo válido en la BD
   Future<void> initialize() async {
+    AppLogger.auth('Inicializando auth provider');
     state = state.copyWith(isLoading: true);
     try {
       final user = await _service.getSessionUser();
-      state = state.copyWith(user: user, isLoading: false);
-    } catch (_) {
+      if (user != null) {
+        AppLogger.auth('Usuario recuperado: ${user.email}, rol: ${user.rol}');
+      } else {
+        AppLogger.auth('No hay sesión activa');
+      }
+      state = state.copyWith(user: user, isLoading: false, clearError: true);
+    } catch (e, stackTrace) {
+      AppLogger.auth('Error inicializando auth: $e', error: e, stackTrace: stackTrace);
+      // Si falla la conexión al validar, no cerramos sesión — mostramos login
       state = state.copyWith(isLoading: false);
     }
   }
 
-  // Login
+  // Login con email + password
   Future<void> signIn(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
+    AppLogger.auth('Iniciando signIn desde provider');
+    state = state.copyWith(isLoading: true, clearError: true);
     try {
       final user = await _service.signIn(email, password);
+      AppLogger.auth('Login exitoso: ${user.email}, rol: ${user.rol}');
       state = state.copyWith(user: user, isLoading: false);
-    } on AuthException catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.message.contains('Invalid login credentials')
-            ? 'Email o contraseña incorrectos'
-            : e.message,
-      );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.auth('Error en signIn provider: $e', error: e, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
         error: e.toString().replaceFirst('Exception: ', ''),
@@ -65,21 +83,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // Logout
+  // Logout: invalida el token en BD y limpia localmente
   Future<void> signOut() async {
-    await _service.signOut();
+    AppLogger.auth('Iniciando logout desde provider');
+    final token = state.user?.sessionToken ?? '';
+    try {
+      await _service.signOut(token);
+      AppLogger.auth('Logout exitoso');
+    } catch (e, stackTrace) {
+      AppLogger.auth('Error en logout provider: $e', error: e, stackTrace: stackTrace);
+    }
     state = const AuthState();
   }
 
-  void clearError() => state = state.copyWith(error: null);
+  void clearError() => state = state.copyWith(clearError: true);
 }
 
-// ── PROVIDER PRINCIPAL ───────────────────────────────────────────────────────
+// ── PROVIDER PRINCIPAL ────────────────────────────────────────────────────────
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(ref.read(authServiceProvider));
 });
 
-// ── PROVIDERS DERIVADOS ──────────────────────────────────────────────────────
+// ── PROVIDERS DERIVADOS ───────────────────────────────────────────────────────
 final currentUserProvider = Provider<AppUser?>((ref) {
   return ref.watch(authProvider).user;
 });

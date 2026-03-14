@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../domain/paciente.dart';
 import '../providers/paciente_provider.dart';
-import '../../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'paciente_form.dart';
 
