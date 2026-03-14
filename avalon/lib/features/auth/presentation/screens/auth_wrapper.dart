@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import 'auto_login_screen.dart';
+import 'login_screen.dart';
 import '../../../dashboard/presentation/screens/dashboard_screen.dart';
 
 class AuthWrapper extends ConsumerStatefulWidget {
@@ -15,28 +15,25 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    // Inicializar autenticación después del build
-    Future.microtask(() {
-      ref.read(authProvider.notifier).initializeAuth();
-      ref.read(authProvider.notifier).clearError();
-    });
+    // Recuperar sesión activa al iniciar la app
+    Future.microtask(() => ref.read(authProvider.notifier).initialize());
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final state = ref.watch(authProvider);
 
-    // Mientras carga, mostrar splash
-    if (authState.isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    // Cargando sesión inicial
+    if (state.isLoading && state.user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
-    // Si está autenticado, mostrar dashboard
-    if (authState.isAuthenticated) {
-      return const DashboardScreen();
-    }
+    // Autenticado → Dashboard
+    if (state.isAuthenticated) return const DashboardScreen();
 
-    // Si no está autenticado, mostrar login
-    return const AutoLoginScreen();
+    // No autenticado → Login
+    return const LoginScreen();
   }
 }

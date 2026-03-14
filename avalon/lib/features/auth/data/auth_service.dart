@@ -1,222 +1,56 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../domain/auth_user.dart' as auth;
-import '../../../core/utils/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../domain/app_user.dart';
+import '../../../core/constants/app_constants.dart';
 
 class AuthService {
   final SupabaseClient _client;
-
   AuthService(this._client);
 
-  // Iniciar sesión con autenticación personalizada
-  Future<auth.AuthUser> signInWithEmailAndPassword(
-    String email,
-    String password,
-  ) async {
-    try {
-      Logger.info('🔐 CUSTOM AUTH: Iniciando signIn', 'AuthService');
-      Logger.info('📧 CUSTOM AUTH: Email recibido: "$email"', 'AuthService');
-      Logger.info('🔒 CUSTOM AUTH: Password recibido: "${password.isNotEmpty ? "***" : "EMPTY"}"', 'AuthService');
+  // ── LOGIN ────────────────────────────────────────────────────────────────
+  Future<AppUser> signIn(String email, String password) async {
+    // 1. Autenticar con Supabase Auth → activa auth.uid() para RLS
+    final res = await _client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
 
-      // Consultar tabla usuarios directamente
-      final response = await _client
-          .from('usuarios')
-          .select()
-          .eq('email', email)
-          .eq('password', password) // En producción, usar hash
-          .eq('activa', true)
-          .maybeSingle();
+    if (res.user == null) throw Exception('Credenciales incorrectas');
 
-      Logger.info('📊 CUSTOM AUTH: Response type: ${response.runtimeType}', 'AuthService');
-      Logger.info('👤 CUSTOM AUTH: Response data: $response', 'AuthService');
+    // 2. Cargar perfil desde public.usuarios
+    final data = await _client
+        .from(AppConstants.tableUsuarios)
+        .select()
+        .eq('auth_user_id', res.user!.id)
+        .eq('activa', true)
+        .maybeSingle();
 
-      if (response == null) {
-        Logger.error('❌ CUSTOM AUTH: Usuario no encontrado o inactivo', 'AuthService');
-        throw Exception('Email o contraseña incorrectos');
-      }
-
-      Logger.info('✅ CUSTOM AUTH: Usuario encontrado', 'AuthService');
-      Logger.info('👤 CUSTOM AUTH: Nombre: ${response['nombre']}', 'AuthService');
-      Logger.info('🔑 CUSTOM AUTH: Rol: ${response['rol']}', 'AuthService');
-
-      // Corregir rol si es 'user'
-      String rol = response['rol'] == 'user' ? 'psicologo' : response['rol'];
-      
-      // Crear AuthUser personalizado
-      final authUserMap = {
-        'id': response['id'].toString(),
-        'email': response['email'],
-        'nombre': response['nombre'],
-        'rol': rol,
-        'licencia_id': response['licencia_id'],
-        'device_id': response['device_id'],
-        'activo': response['activa'],
-        'especialidad': response['especialidad'],
-        'disponibilidad': response['disponibilidad'],
-        'fecha_registro': response['fecha_registro'],
-      };
-
-      final authUser = auth.AuthUser.fromMap(authUserMap);
-      
-      Logger.info('✅ CUSTOM AUTH: Login exitoso', 'AuthService');
-      Logger.info('👤 CUSTOM AUTH: User: ${authUser.nombre}', 'AuthService');
-      Logger.info('🔑 CUSTOM AUTH: Rol: ${authUser.rol}', 'AuthService');
-      
-      return authUser;
-    } catch (e) {
-      Logger.error('💥 CUSTOM AUTH: Error en signIn', 'AuthService');
-      Logger.error('💥 CUSTOM AUTH: Error: $e', 'AuthService');
-      rethrow;
+    if (data == null) {
+      await _client.auth.signOut();
+      throw Exception('Usuario no encontrado o inactivo');
     }
+
+    return AppUser.fromJson(data);
   }
 
-  // Registrar usuario
-  Future<auth.AuthUser> signUpWithEmailAndPassword({
-    required String email,
-    required String password,
-    required String nombre,
-    required String licenseKey,
-  }) async {
-    try {
-      Logger.info('🔐 CUSTOM AUTH: Iniciando signUp', 'AuthService');
-      
-      // Validar licencia
-      final licenseValidation = await _validateLicense(licenseKey);
-      if (!licenseValidation['valid']) {
-        throw Exception('Licencia inválida o inactiva');
-      }
-
-      // Insertar usuario en tabla usuarios
-      final response = await _client
-          .from('usuarios')
-          .insert({
-            'nombre': nombre,
-            'email': email,
-            'password': password, // En producción, usar hash
-            'licencia_id': licenseValidation['clinica_id'],
-            'rol': 'psicologo', // Por defecto
-            'activa': true,
-            'fecha_registro': DateTime.now().toIso8601String(),
-          })
-          .select()
-          .single();
-
-      Logger.info('✅ CUSTOM AUTH: Usuario creado exitosamente', 'AuthService');
-
-      // Corregir rol si es 'user'
-      String rol = response['rol'] == 'user' ? 'psicologo' : response['rol'];
-      
-      // Crear AuthUser personalizado
-      final authUserMap = {
-        'id': response['id'].toString(),
-        'email': response['email'],
-        'nombre': response['nombre'],
-        'rol': rol,
-        'licencia_id': response['licencia_id'],
-        'device_id': response['device_id'],
-        'activo': response['activa'],
-        'especialidad': response['especialidad'],
-        'disponibilidad': response['disponibilidad'],
-        'fecha_registro': response['fecha_registro'],
-      };
-
-      final authUser = auth.AuthUser.fromMap(authUserMap);
-      
-      return authUser;
-    } catch (e) {
-      Logger.error('💥 CUSTOM AUTH: Error en signUp', 'AuthService');
-      Logger.error('💥 CUSTOM AUTH: Error: $e', 'AuthService');
-      rethrow;
-    }
-  }
-
-  // Obtener usuario actual desde SharedPreferences
-  Future<auth.AuthUser?> getCurrentUser() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId');
-      final userEmail = prefs.getString('userEmail');
-      final userRole = prefs.getString('userRole');
-      final userName = prefs.getString('userName');
-
-      if (userId == null || userEmail == null) {
-        return null;
-      }
-
-      final authUserMap = {
-        'id': userId,
-        'email': userEmail,
-        'nombre': userName ?? '',
-        'rol': userRole, // Mantener el rol original sin cambiar
-      };
-
-      return auth.AuthUser.fromMap(authUserMap);
-    } catch (e) {
-      Logger.error('💥 CUSTOM AUTH: Error en getCurrentUser', 'AuthService');
-      return null;
-    }
-  }
-
-  // Cerrar sesión
+  // ── LOGOUT ───────────────────────────────────────────────────────────────
   Future<void> signOut() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      Logger.info('🚪 CUSTOM AUTH: Sesión cerrada', 'AuthService');
-    } catch (e) {
-      Logger.error('💥 CUSTOM AUTH: Error en signOut', 'AuthService');
-    }
+    await _client.auth.signOut();
   }
 
-  // Guardar sesión en SharedPreferences
-  Future<void> saveSession(auth.AuthUser user) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('userId', user.id);
-      await prefs.setString('userEmail', user.email);
-      if (user.rol != null) {
-        await prefs.setString('userRole', user.rol!);
-      }
-      if (user.nombre != null) {
-        await prefs.setString('userName', user.nombre!);
-      }
-      Logger.info('💾 CUSTOM AUTH: Sesión guardada', 'AuthService');
-    } catch (e) {
-      Logger.error('💥 CUSTOM AUTH: Error guardando sesión', 'AuthService');
-    }
-  }
+  // ── SESIÓN ACTIVA ────────────────────────────────────────────────────────
+  // Recupera el usuario si Supabase Auth tiene sesión guardada (ej. al reabrir app)
+  Future<AppUser?> getSessionUser() async {
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) return null;
 
-  // Validar licencia
-  Future<Map<String, dynamic>> _validateLicense(String licenseKey) async {
-    try {
-      final response = await _client
-          .from('licencias')
-          .select('clinica_id, estado, max_usuarios')
-          .eq('license_key', licenseKey)
-          .maybeSingle();
+    final data = await _client
+        .from(AppConstants.tableUsuarios)
+        .select()
+        .eq('auth_user_id', authUser.id)
+        .eq('activa', true)
+        .maybeSingle();
 
-      if (response == null) {
-        return {'valid': false, 'error': 'Licencia no encontrada'};
-      }
-
-      if (response['estado'] != 'activa') {
-        return {'valid': false, 'error': 'Licencia inactiva'};
-      }
-
-      return {
-        'valid': true,
-        'clinica_id': response['clinica_id'],
-        'max_users': response['max_usuarios']
-      };
-    } catch (e) {
-      Logger.error('💥 CUSTOM AUTH: Error validando licencia', 'AuthService');
-      return {'valid': false, 'error': 'Error validando licencia'};
-    }
-  }
-
-  // Reset password (placeholder)
-  Future<void> resetPassword(String email) async {
-    // Implementar lógica de reset de password si es necesario
-    Logger.info('🔄 CUSTOM AUTH: Reset password solicitado para $email', 'AuthService');
+    if (data == null) return null;
+    return AppUser.fromJson(data);
   }
 }
