@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/logger.dart';
@@ -9,6 +10,9 @@ import 'features/auth/presentation/screens/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar locale español para DateFormat — DEBE ir antes de runApp
+  await initializeDateFormatting('es', null);
   
   // Configurar manejo de errores globales
   FlutterError.onError = (FlutterErrorDetails details) {

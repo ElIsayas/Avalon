@@ -37,16 +37,20 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../providers/dashboard_provider.dart';
+import '../../../citas/presentation/widgets/widget_citas_hoy.dart';
+import '../../../citas/presentation/widgets/widget_proximas_citas.dart';
+import '../../../citas/presentation/widgets/widget_disponibilidad.dart';
+import '../../../citas/presentation/widgets/widget_recordatorios.dart';
+import '../../../citas/presentation/providers/citas_provider.dart';
+import '../../data/dashboard_service.dart';
 import '../../../pacientes/presentation/screens/pacientes_screen.dart';
 import '../../../citas/presentation/screens/citas_screen.dart';
-import '../../../superadmin/presentation/screens/superadmin_screen.dart';
-import '../../data/dashboard_service.dart';
-import '../providers/dashboard_provider.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../features/superadmin/presentation/screens/superadmin_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -57,7 +61,10 @@ class DashboardScreen extends ConsumerWidget {
     final dash = ref.watch(dashboardProvider);
 
     if (!dash.isLoading && dash.stats == DashboardStats.empty) {
-      Future.microtask(() => ref.read(dashboardProvider.notifier).cargar());
+      Future.microtask(() {
+        ref.read(dashboardProvider.notifier).cargar();
+        ref.read(citasProvider.notifier).cargarTodo();
+      });
     }
 
     return Scaffold(
@@ -170,6 +177,31 @@ class DashboardScreen extends ConsumerWidget {
                       fontSize: 16.sp, fontWeight: FontWeight.w600)),
                   SizedBox(height: 8.h),
                   ...dash.stats.ultimosPacientes.map((p) => _UltimoPacienteRow(p)),
+                ],
+
+                // ── Widgets de Citas ──
+                SizedBox(height: 20.h),
+                
+                // Recordatorios (visible para todos)
+                WidgetRecordatorios(),
+                
+                SizedBox(height: 16.h),
+                
+                // Citas de hoy (visible para todos)
+                WidgetCitasHoy(),
+                
+                SizedBox(height: 16.h),
+                
+                // Disponibilidad (solo para secretaria/admin/superadmin)
+                if (user?.isSecretaria == true || user?.isAdmin == true || user?.isSuperAdmin == true) ...[
+                  WidgetDisponibilidad(),
+                  SizedBox(height: 16.h),
+                ],
+                
+                // Próximas citas (solo para psicólogos)
+                if (user?.isPsicologo == true) ...[
+                  WidgetProximasCitas(),
+                  SizedBox(height: 16.h),
                 ],
               ],
 

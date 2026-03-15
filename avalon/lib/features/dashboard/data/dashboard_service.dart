@@ -49,13 +49,22 @@ class DashboardService {
     AppLogger.database('Obteniendo estadísticas del dashboard');
     
     try {
-      // Por ahora, datos de ejemplo. Luego implementar RPCs reales
+      final res = await _client.rpc('get_dashboard_stats', params: {'p_token': _token});
+      final data = Map<String, dynamic>.from(res as Map);
+      
+      if (data.containsKey('error')) {
+        throw Exception(data['error']);
+      }
+      
       final stats = DashboardStats(
-        totalPacientes: 0,
-        pacientesActivos: 0,
-        citasHoy: 0,
-        citasSemana: 0,
-        ultimosPacientes: [],
+        totalPacientes: data['total_pacientes'] as int? ?? 0,
+        pacientesActivos: data['pacientes_activos'] as int? ?? 0,
+        citasHoy: data['citas_hoy'] as int? ?? 0,
+        citasSemana: data['citas_semana'] as int? ?? 0,
+        proximaCita: data['proxima_cita'] as Map<String, dynamic>?,
+        ultimosPacientes: (data['ultimos_pacientes'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
       );
       
       AppLogger.database('Estadísticas obtenidas: ${stats.totalPacientes} pacientes');
