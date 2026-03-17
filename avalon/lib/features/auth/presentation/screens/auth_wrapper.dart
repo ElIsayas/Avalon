@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
-import '../../../dashboard/presentation/screens/dashboard_screen.dart';
+import '../../../../core/navigation/app_shell.dart';
 
 class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({super.key});
@@ -31,7 +31,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
     }
 
     // Autenticado → Dashboard
-    if (state.isAuthenticated) return const DashboardScreen();
+    if (state.isAuthenticated) return const AppShell();
 
     // No autenticado → Login
     return const LoginScreen();

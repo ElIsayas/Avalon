@@ -77,7 +77,7 @@ class _PsicologoDisponibilidadItem extends StatelessWidget {
             radius: 20.r,
             backgroundColor: psicologo.estaDisponible ? AppTheme.accent : AppTheme.warning,
             child: Text(
-              psicologo.nombre.iniciales,
+              _iniciales(psicologo.nombre),
               style: GoogleFonts.inter(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -144,10 +144,10 @@ class _PsicologoDisponibilidadItem extends StatelessWidget {
   }
 }
 
-extension on String {
-  String get iniciales {
-    final partes = trim().split(' ');
-    if (partes.length >= 2) return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
-    return substring(0, length >= 2 ? 2 : 1).toUpperCase();
-  }
+// Nota: extensión iniciales centralizada en AppUser y Paciente
+
+String _iniciales(String nombre) {
+  final partes = nombre.trim().split(' ');
+  if (partes.length >= 2) return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
+  return nombre.substring(0, nombre.length >= 2 ? 2 : 1).toUpperCase();
 }

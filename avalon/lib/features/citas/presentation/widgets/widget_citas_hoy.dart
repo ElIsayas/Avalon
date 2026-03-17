@@ -34,7 +34,7 @@ class WidgetCitasHoy extends ConsumerWidget {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.1),
+                    color: AppTheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12.r),
                   ),
                   child: Text(
@@ -97,7 +97,7 @@ class _CitaHoyItem extends StatelessWidget {
             width: 40.w,
             height: 40.h,
             decoration: BoxDecoration(
-              color: _getEstadoColor(cita.estado).withOpacity(0.1),
+              color: _getEstadoColor(cita.estado).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Center(
@@ -117,7 +117,7 @@ class _CitaHoyItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  cita.pacienteId,
+                  cita.pacienteNombre ?? cita.pacienteId,
                   style: GoogleFonts.inter(
                     fontSize: 14.sp,
                     fontWeight: FontWeight.w500,
@@ -125,7 +125,7 @@ class _CitaHoyItem extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'con ${cita.psicologoId}',
+                  'con ${cita.psicologoNombre ?? cita.psicologoId}',
                   style: GoogleFonts.inter(
                     fontSize: 12.sp,
                     color: AppTheme.textGrey,
@@ -201,7 +201,7 @@ class _EstadoChip extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4.r),
       ),
       child: Text(

@@ -8,6 +8,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/layout/responsive.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/cita.dart';
 import '../providers/citas_provider.dart';
@@ -294,10 +295,10 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                       Container(
                         padding: EdgeInsets.all(10.r),
                         decoration: BoxDecoration(
-                          color: AppTheme.error.withOpacity(0.1),
+                          color: AppTheme.error.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8.r),
                           border: Border.all(
-                              color: AppTheme.error.withOpacity(0.3)),
+                              color: AppTheme.error.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
@@ -670,7 +671,7 @@ class _SelectorPacienteSheetState extends State<_SelectorPacienteSheet> {
                         onTap: () => Navigator.pop(ctx, p),
                         leading: CircleAvatar(
                           radius: 20.r,
-                          backgroundColor: AppTheme.primary.withOpacity(0.1),
+                          backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
                           child: Text(
                             _iniciales(nombre),
                             style: GoogleFonts.inter(
@@ -692,7 +693,7 @@ class _SelectorPacienteSheetState extends State<_SelectorPacienteSheet> {
                                 padding: EdgeInsets.symmetric(
                                     horizontal: 6.w, vertical: 2.h),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.error.withOpacity(0.1),
+                                  color: AppTheme.error.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4.r),
                                 ),
                                 child: Text('Inactivo',
@@ -740,4 +741,15 @@ class _SelectorPacienteSheetState extends State<_SelectorPacienteSheet> {
     }
     return nombre.substring(0, nombre.length >= 2 ? 2 : 1).toUpperCase();
   }
+}
+
+// Helper de responsive para este screen
+Widget _desktopWrap(BuildContext context, Widget child) {
+  if (!context.isDesktop) return child;
+  return Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 900),
+      child: child,
+    ),
+  );
 }

@@ -7,9 +7,12 @@ import 'package:intl/intl.dart';
 import '../../domain/cita.dart';
 import '../providers/citas_provider.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/i18n/app_strings.dart';
+import '../../../../core/layout/responsive.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/auth/domain/app_user.dart';
 import 'nueva_cita_screen.dart';
+import 'cita_detalle_screen.dart';
 
 class CitasScreen extends ConsumerStatefulWidget {
   const CitasScreen({super.key});
@@ -58,6 +61,7 @@ class _CitasScreenState extends ConsumerState<CitasScreen>
             fontWeight: FontWeight.w600,
           ),
         ),
+        automaticallyImplyLeading: false,
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
         actions: [
@@ -97,10 +101,10 @@ class _CitasScreenState extends ConsumerState<CitasScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
-          tabs: const [
-            Tab(text: 'Calendario', icon: Icon(Icons.calendar_month)),
-            Tab(text: 'Lista', icon: Icon(Icons.list)),
-            Tab(text: 'Psicólogos', icon: Icon(Icons.people)),
+          tabs: [
+            Tab(text: context.t.calendario, icon: const Icon(Icons.calendar_month)),
+            Tab(text: context.t.lista, icon: const Icon(Icons.list)),
+            Tab(text: context.t.psicologos, icon: const Icon(Icons.people)),
           ],
         ),
       ),
@@ -135,47 +139,53 @@ class _CitasScreenState extends ConsumerState<CitasScreen>
   }
 }
 
-class _CalendarioTab extends ConsumerWidget {
+class _CalendarioTab extends ConsumerStatefulWidget {
   final CitasState citasState;
 
   const _CalendarioTab({required this.citasState});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final citasPorDia = ref.watch(citasPorDiaProvider);
-    DateTime mesActual = DateTime.now();
-    
-    return Column(
-      children: [
-        _MesNavigator(mesActual: mesActual),
-        Expanded(
-          child: _CalendarioGrid(
-            mesActual: mesActual,
-            citasPorDia: citasPorDia,
-          ),
-        ),
-      ],
-    );
-  }
+  ConsumerState<_CalendarioTab> createState() => _CalendarioTabState();
 }
 
-class _MesNavigator extends StatefulWidget {
-  final DateTime mesActual;
-
-  const _MesNavigator({required this.mesActual});
-
-  @override
-  State<_MesNavigator> createState() => _MesNavigatorState();
-}
-
-class _MesNavigatorState extends State<_MesNavigator> {
-  late DateTime mesMostrado;
+class _CalendarioTabState extends ConsumerState<_CalendarioTab> {
+  late DateTime _mesActual;
 
   @override
   void initState() {
     super.initState();
-    mesMostrado = DateTime(widget.mesActual.year, widget.mesActual.month, 1);
+    _mesActual = DateTime(DateTime.now().year, DateTime.now().month, 1);
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final citasPorDia = ref.watch(citasPorDiaProvider);
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _MesNavigator(
+            mesActual: _mesActual,
+            onMesChanged: (nuevo) => setState(() => _mesActual = nuevo),
+          ),
+          _CalendarioGrid(
+            mesActual: _mesActual,
+            citasPorDia: citasPorDia,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MesNavigator extends StatelessWidget {
+  final DateTime mesActual;
+  final ValueChanged<DateTime> onMesChanged;
+
+  const _MesNavigator({
+    required this.mesActual,
+    required this.onMesChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -185,26 +195,22 @@ class _MesNavigatorState extends State<_MesNavigator> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            onPressed: () {
-              setState(() {
-                mesMostrado = DateTime(mesMostrado.year, mesMostrado.month - 1, 1);
-              });
-            },
+            onPressed: () => onMesChanged(
+              DateTime(mesActual.year, mesActual.month - 1, 1),
+            ),
             icon: const Icon(Icons.chevron_left),
           ),
           Text(
-            DateFormat('MMMM yyyy', 'es').format(mesMostrado),
+            DateFormat('MMMM yyyy', 'es').format(mesActual),
             style: GoogleFonts.inter(
               fontSize: 18.sp,
               fontWeight: FontWeight.w600,
             ),
           ),
           IconButton(
-            onPressed: () {
-              setState(() {
-                mesMostrado = DateTime(mesMostrado.year, mesMostrado.month + 1, 1);
-              });
-            },
+            onPressed: () => onMesChanged(
+              DateTime(mesActual.year, mesActual.month + 1, 1),
+            ),
             icon: const Icon(Icons.chevron_right),
           ),
         ],
@@ -225,38 +231,44 @@ class _CalendarioGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primerDiaMes = DateTime(mesActual.year, mesActual.month, 1);
-    // En Dart: weekday retorna 1 (lunes) a 7 (domingo)
-    // Para calendario que empieza domingo, necesitamos convertir a 0-6
+    // Dart weekday: 1=lun ... 7=dom. Para calendario Dom=0: 7%7=0, 1%7=1, etc.
     final primerDiaSemana = primerDiaMes.weekday % 7;
-    
-    final dias = List.generate(42, (index) {
-      final dia = primerDiaMes.add(Duration(days: index - primerDiaSemana));
-      return dia;
-    });
+
+    final dias = List.generate(42, (i) =>
+        primerDiaMes.add(Duration(days: i - primerDiaSemana)));
+
+    // Altura de celda adaptativa: en desktop más compacto, en mobile más alto
+    final isDesktopView = MediaQuery.of(context).size.width > 600;
+    final cellHeight = isDesktopView ? 72.0 : 52.0;
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         _DiasSemanaHeader(),
-        Expanded(
-          child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-            ),
-            itemCount: 42,
-            itemBuilder: (context, index) {
+        // 6 filas de 7 días — altura fija para que siempre se vea el mes completo
+        ...List.generate(6, (fila) {
+          return Row(
+            children: List.generate(7, (col) {
+              final index = fila * 7 + col;
               final dia = dias[index];
               final esMesActual = dia.month == mesActual.month;
-              final diaKey = '${dia.year}-${dia.month.toString().padLeft(2, '0')}-${dia.day.toString().padLeft(2, '0')}';
+              final diaKey =
+                  '${dia.year}-${dia.month.toString().padLeft(2, '0')}-${dia.day.toString().padLeft(2, '0')}';
               final citasDia = citasPorDia[diaKey] ?? [];
-              
-              return _DiaCalendario(
-                dia: dia,
-                esMesActual: esMesActual,
-                citas: citasDia,
+
+              return Expanded(
+                child: SizedBox(
+                  height: cellHeight,
+                  child: _DiaCalendario(
+                    dia: dia,
+                    esMesActual: esMesActual,
+                    citas: citasDia,
+                  ),
+                ),
               );
-            },
-          ),
-        ),
+            }),
+          );
+        }),
       ],
     );
   }
@@ -267,7 +279,7 @@ class _DiasSemanaHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    final dias = context.t.diasSemana;
     
     return Row(
       children: dias.map((dia) => Expanded(
@@ -309,7 +321,7 @@ class _DiaCalendario extends StatelessWidget {
       child: Container(
         margin: EdgeInsets.all(2.w),
         decoration: BoxDecoration(
-          color: esHoy ? AppTheme.primary.withOpacity(0.1) : null,
+          color: esHoy ? AppTheme.primary.withValues(alpha: 0.1) : null,
           border: esHoy ? Border.all(color: AppTheme.primary) : null,
           borderRadius: BorderRadius.circular(8.r),
         ),
@@ -434,7 +446,7 @@ class _ListaTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
+    return _desktopWrap(context, Column(
       children: [
         Padding(
           padding: EdgeInsets.all(16.w),
@@ -479,7 +491,7 @@ class _ListaTab extends ConsumerWidget {
                 ),
         ),
       ],
-    );
+    ));
   }
 }
 
@@ -491,60 +503,136 @@ class _CitaListItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final puedeCancelar = user?.isSecretaria == true || 
-                           user?.isAdmin == true || 
-                           user?.isSuperAdmin == true;
+    final puedeCancelar = user?.isSecretaria == true ||
+        user?.isAdmin == true ||
+        user?.isSuperAdmin == true;
+
+    // Nombres reales o fallback legible
+    final nombrePaciente   = cita.pacienteNombre   ?? 'Paciente';
+    final nombrePsicologo  = cita.psicologoNombre  ?? 'Psicólogo';
+
+    Color estadoColor;
+    switch (cita.estado) {
+      case EstadoCita.confirmada:
+      case EstadoCita.enProgreso:  estadoColor = AppTheme.accent;    break;
+      case EstadoCita.completada:  estadoColor = AppTheme.primary;   break;
+      case EstadoCita.cancelada:
+      case EstadoCita.noAsistio:   estadoColor = AppTheme.error;     break;
+      default:                     estadoColor = AppTheme.warning;
+    }
 
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-      child: ListTile(
-        title: Text(
-          DateFormat('HH:mm').format(cita.fechaHora),
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12.r),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => CitaDetalleScreen(cita: cita)),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Paciente: ${cita.pacienteId}'),
-            Text('Psicólogo: ${cita.psicologoId}'),
-            Text('Tipo: ${cita.tipoLabel}'),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _EstadoChip(estado: cita.estado),
-            if (puedeCancelar && cita.estado != EstadoCita.cancelada)
-              IconButton(
-                onPressed: () => _mostrarDialogoCancelar(context, ref, cita),
-                icon: const Icon(Icons.cancel, color: AppTheme.error),
+        child: Padding(
+          padding: EdgeInsets.all(14.r),
+          child: Row(
+            children: [
+              // Hora
+              Container(
+                width: 50.w,
+                height: 50.h,
+                decoration: BoxDecoration(
+                  color: estadoColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Center(
+                  child: Text(
+                    DateFormat('HH:mm').format(cita.fechaHora),
+                    style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.bold,
+                        color: estadoColor),
+                  ),
+                ),
               ),
-          ],
+              SizedBox(width: 12.w),
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(nombrePaciente,
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600, fontSize: 14.sp),
+                        overflow: TextOverflow.ellipsis),
+                    SizedBox(height: 2.h),
+                    Text(
+                      '$nombrePsicologo · ${cita.tipoSesion.label}',
+                      style: GoogleFonts.inter(
+                          fontSize: 12.sp, color: AppTheme.textGrey),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 2.h),
+                    Row(children: [
+                      Icon(
+                        cita.modalidad == ModalidadCita.online
+                            ? Icons.videocam_outlined
+                            : Icons.location_on_outlined,
+                        size: 12.sp,
+                        color: AppTheme.textGrey,
+                      ),
+                      SizedBox(width: 3.w),
+                      Text(cita.modalidad.label,
+                          style: GoogleFonts.inter(
+                              fontSize: 11.sp, color: AppTheme.textGrey)),
+                    ]),
+                  ],
+                ),
+              ),
+              // Estado + acciones
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _EstadoChip(estado: cita.estado),
+                  if (puedeCancelar && cita.estado != EstadoCita.cancelada &&
+                      cita.estado != EstadoCita.completada)
+                    Padding(
+                      padding: EdgeInsets.only(top: 4.h),
+                      child: GestureDetector(
+                        onTap: () => _cancelar(context, ref, cita),
+                        child: Text('Cancelar',
+                            style: GoogleFonts.inter(
+                                fontSize: 11.sp,
+                                color: AppTheme.error,
+                                fontWeight: FontWeight.w500)),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _mostrarDialogoCancelar(BuildContext context, WidgetRef ref, Cita cita) {
+  void _cancelar(BuildContext context, WidgetRef ref, Cita cita) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Cancelar Cita'),
-        content: const Text('¿Está seguro de cancelar esta cita?'),
+        title: const Text('Cancelar cita'),
+        content: const Text('¿Confirmas la cancelación de esta cita?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('No'),
-          ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('No')),
           TextButton(
             onPressed: () {
               ref.read(citasProvider.notifier).actualizarCita(
-                citaId: cita.id,
-                estado: 'cancelada',
-              );
+                    citaId: cita.id,
+                    estado: 'cancelada',
+                  );
               Navigator.pop(context);
             },
-            child: const Text('Sí'),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Sí, cancelar'),
           ),
         ],
       ),
@@ -597,7 +685,7 @@ class _EstadoChip extends StatelessWidget {
         _getEstadoLabel(estado),
         style: GoogleFonts.inter(fontSize: 10.sp),
       ),
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withValues(alpha: 0.1),
       side: BorderSide(color: color),
     );
   }
@@ -612,13 +700,13 @@ class _PsicologosTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final disponibilidad = ref.watch(disponibilidadProvider);
     
-    return ListView.builder(
+    return _desktopWrap(context, ListView.builder(
       itemCount: disponibilidad.length,
       itemBuilder: (context, index) {
         final psicologo = disponibilidad[index];
         return _PsicologoCard(psicologo: psicologo);
       },
-    );
+    ));
   }
 }
 
@@ -843,7 +931,7 @@ class _CrearRecordatorioFormState extends State<_CrearRecordatorioForm> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),
@@ -917,4 +1005,14 @@ class _CrearRecordatorioFormState extends State<_CrearRecordatorioForm> {
     _descripcionController.dispose();
     super.dispose();
   }
+}
+
+Widget _desktopWrap(BuildContext context, Widget child) {
+  if (!context.isDesktop) return child;
+  return Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 900),
+      child: child,
+    ),
+  );
 }

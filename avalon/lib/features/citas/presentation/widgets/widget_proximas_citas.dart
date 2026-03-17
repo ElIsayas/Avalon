@@ -75,7 +75,7 @@ class _ProximaCitaItem extends StatelessWidget {
               width: 48.w,
               height: 48.h,
               decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.1),
+                color: AppTheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8.r),
               ),
               child: Column(
@@ -120,7 +120,7 @@ class _ProximaCitaItem extends StatelessWidget {
                         Container(
                           padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                           decoration: BoxDecoration(
-                            color: AppTheme.accent.withOpacity(0.1),
+                            color: AppTheme.accent.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4.r),
                           ),
                           child: Text(
@@ -136,7 +136,7 @@ class _ProximaCitaItem extends StatelessWidget {
                         Container(
                           padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                           decoration: BoxDecoration(
-                            color: AppTheme.warning.withOpacity(0.1),
+                            color: AppTheme.warning.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4.r),
                           ),
                           child: Text(
@@ -152,7 +152,7 @@ class _ProximaCitaItem extends StatelessWidget {
                   ),
                   SizedBox(height: 4.h),
                   Text(
-                    cita.pacienteId,
+                    cita.pacienteNombre ?? cita.pacienteId,
                     style: GoogleFonts.inter(
                       fontSize: 14.sp,
                       color: AppTheme.textDark,

@@ -7,7 +7,11 @@ import '../../domain/paciente.dart';
 import '../providers/paciente_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/i18n/app_strings.dart';
+import '../../../../core/layout/responsive.dart';
 import 'paciente_form.dart';
+import 'paciente_detalle_screen.dart';
+import '../../../../features/busqueda/presentation/screens/busqueda_global_screen.dart';
 
 class PacientesScreen extends ConsumerStatefulWidget {
   const PacientesScreen({super.key});
@@ -62,13 +66,11 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
   }
 
   void _verDetalle(Paciente p) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
-      builder: (_) => _DetalleSheet(paciente: p, onEditar: () => _irAForm(p)),
-    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => PacienteDetalleScreen(paciente: p)),
+    ).then((_) => ref.read(pacientesProvider.notifier).cargar());
   }
 
   @override
@@ -98,7 +100,16 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pacientes'),
+        title: Text(context.t.pacientes),
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Búsqueda global',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const BusquedaGlobalScreen())),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(60.h),
           child: Padding(
@@ -110,7 +121,7 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
                   : ref.read(pacientesProvider.notifier).buscar(v),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Buscar por nombre, email o documento...',
+                hintText: context.t.buscarPaciente,
                 hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
                 prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.8)),
                 suffixIcon: _searchCtrl.text.isNotEmpty
@@ -137,7 +148,9 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
       ),
 
       // Stats header
-      body: Column(
+      body: ResponsiveBody(
+        maxWidth: kDesktopContentMaxWidth,
+        child: Column(
         children: [
           _StatsBar(total: state.total, activos: state.activos, isAdmin: isAdmin),
 
@@ -166,11 +179,12 @@ class _PacientesScreenState extends ConsumerState<PacientesScreen> {
           ),
         ],
       ),
+      ),
 
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _irAForm(),
         icon: const Icon(Icons.person_add),
-        label: const Text('Nuevo paciente'),
+        label: Text(context.t.nuevoPaciente),
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
       ),
@@ -304,7 +318,7 @@ class _PacienteCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6.r),
                           ),
                           child: Text(
-                            paciente.activo ? 'Activo' : 'Inactivo',
+                            paciente.activo ? context.t.activo : context.t.inactivo,
                             style: GoogleFonts.inter(
                               fontSize: 10.sp,
                               fontWeight: FontWeight.w600,
@@ -378,7 +392,7 @@ class _Empty extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: onCrear,
             icon: const Icon(Icons.person_add),
-            label: const Text('Nuevo paciente'),
+            label: Text(context.t.nuevoPaciente),
           ),
         ],
       ),
@@ -445,7 +459,7 @@ class _DetalleSheet extends StatelessWidget {
           if (paciente.direccion != null) _fila('Dirección', paciente.direccion!),
           if (paciente.fechaNacimiento != null)
             _fila('Nacimiento', DateFormat('dd/MM/yyyy').format(paciente.fechaNacimiento!)),
-          _fila('Estado', paciente.activo ? 'Activo' : 'Inactivo'),
+          _fila('Estado', paciente.activo ? context.t.activo : context.t.inactivo),
           _fila('Registro', DateFormat('dd/MM/yyyy').format(paciente.fechaRegistro)),
           if (paciente.historialMedico != null) ...[
             SizedBox(height: 16.h),

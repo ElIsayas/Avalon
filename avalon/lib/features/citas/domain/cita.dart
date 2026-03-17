@@ -92,6 +92,9 @@ class Cita {
   final DateTime? eliminadoEn;
   final DateTime fechaActualizacion;
   final DateTime fechaCreacion;
+  // Campos enriquecidos — devueltos por vista_citas_completa / get_citas
+  final String? pacienteNombre;
+  final String? psicologoNombre;
 
   const Cita({
     required this.id,
@@ -111,6 +114,8 @@ class Cita {
     this.eliminadoEn,
     required this.fechaActualizacion,
     required this.fechaCreacion,
+    this.pacienteNombre,
+    this.psicologoNombre,
   });
 
   factory Cita.fromJson(Map<String, dynamic> json) {
@@ -134,6 +139,9 @@ class Cita {
           : null,
       fechaActualizacion: DateTime.tryParse(json['fecha_actualizacion'].toString()) ?? DateTime.now(),
       fechaCreacion: DateTime.tryParse(json['fecha_creacion'].toString()) ?? DateTime.now(),
+      // Nombres del JOIN (vista_citas_completa / get_citas enriquecido)
+      pacienteNombre: json['paciente_nombre']?.toString(),
+      psicologoNombre: json['psicologo_nombre']?.toString(),
     );
   }
 
@@ -178,6 +186,8 @@ class Cita {
     DateTime? eliminadoEn,
     DateTime? fechaActualizacion,
     DateTime? fechaCreacion,
+    String? pacienteNombre,
+    String? psicologoNombre,
   }) {
     return Cita(
       id: id ?? this.id,
@@ -197,6 +207,8 @@ class Cita {
       eliminadoEn: eliminadoEn ?? this.eliminadoEn,
       fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
       fechaCreacion: fechaCreacion ?? this.fechaCreacion,
+      pacienteNombre: pacienteNombre ?? this.pacienteNombre,
+      psicologoNombre: psicologoNombre ?? this.psicologoNombre,
     );
   }
 
