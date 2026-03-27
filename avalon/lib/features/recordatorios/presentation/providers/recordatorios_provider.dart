@@ -11,7 +11,8 @@ class RecordatoriosExService {
 
   RecordatoriosExService(this._client, this._token);
 
-  Future<List<RecordatorioEx>> getRecordatorios({bool incluirResueltos = false}) async {
+  Future<List<RecordatorioEx>> getRecordatorios(
+      {bool incluirResueltos = false}) async {
     try {
       final res = await _client.rpc('get_recordatorios', params: {
         'p_token': _token,
@@ -19,9 +20,12 @@ class RecordatoriosExService {
       final lista = (res as List? ?? [])
           .map((j) => RecordatorioEx.fromJson(j as Map<String, dynamic>))
           .toList();
-      return incluirResueltos ? lista : lista.where((r) => !r.resuelto).toList();
+      return incluirResueltos
+          ? lista
+          : lista.where((r) => !r.resuelto).toList();
     } catch (e, st) {
-      AppLogger.database('Error obteniendo recordatorios: $e', error: e, stackTrace: st);
+      AppLogger.database('Error obteniendo recordatorios: $e',
+          error: e, stackTrace: st);
       rethrow;
     }
   }
@@ -36,23 +40,27 @@ class RecordatoriosExService {
   }) async {
     try {
       final params = <String, dynamic>{
-        'p_token':    _token,
-        'p_titulo':   titulo,
+        'p_token': _token,
+        'p_titulo': titulo,
         'p_prioridad': prioridad,
       };
-      if (descripcion     != null) params['p_descripcion']      = descripcion;
-      if (asignadoA       != null) params['p_asignado_a']       = asignadoA;
-      if (fechaVencimiento != null)
+      if (descripcion != null) params['p_descripcion'] = descripcion;
+      if (asignadoA != null) params['p_asignado_a'] = asignadoA;
+      if (fechaVencimiento != null) {
         params['p_fecha_vencimiento'] =
             fechaVencimiento.toIso8601String().split('T')[0];
+      }
       // categoria se pasa si el RPC lo acepta
       params['p_categoria'] = categoria;
 
       final res = await _client.rpc('crear_recordatorio', params: params);
       final data = res as Map<String, dynamic>?;
-      if (data != null && data.containsKey('error')) throw Exception(data['error']);
+      if (data != null && data.containsKey('error')) {
+        throw Exception(data['error']);
+      }
     } catch (e, st) {
-      AppLogger.database('Error creando recordatorio: $e', error: e, stackTrace: st);
+      AppLogger.database('Error creando recordatorio: $e',
+          error: e, stackTrace: st);
       rethrow;
     }
   }
@@ -60,13 +68,16 @@ class RecordatoriosExService {
   Future<void> resolver(String id) async {
     try {
       final res = await _client.rpc('resolver_recordatorio', params: {
-        'p_token':           _token,
+        'p_token': _token,
         'p_recordatorio_id': id,
       });
       final data = res as Map<String, dynamic>?;
-      if (data != null && data.containsKey('error')) throw Exception(data['error']);
+      if (data != null && data.containsKey('error')) {
+        throw Exception(data['error']);
+      }
     } catch (e, st) {
-      AppLogger.database('Error resolviendo recordatorio: $e', error: e, stackTrace: st);
+      AppLogger.database('Error resolviendo recordatorio: $e',
+          error: e, stackTrace: st);
       rethrow;
     }
   }
@@ -74,13 +85,50 @@ class RecordatoriosExService {
   Future<void> eliminar(String id) async {
     try {
       final res = await _client.rpc('eliminar_recordatorio', params: {
-        'p_token':           _token,
+        'p_token': _token,
         'p_recordatorio_id': id,
       });
       final data = res as Map<String, dynamic>?;
-      if (data != null && data.containsKey('error')) throw Exception(data['error']);
+      if (data != null && data.containsKey('error')) {
+        throw Exception(data['error']);
+      }
     } catch (e, st) {
-      AppLogger.database('Error eliminando recordatorio: $e', error: e, stackTrace: st);
+      AppLogger.database('Error eliminando recordatorio: $e',
+          error: e, stackTrace: st);
+      rethrow;
+    }
+  }
+
+  Future<void> editar({
+    required String id,
+    String? titulo,
+    String? descripcion,
+    String? prioridad,
+    String? categoria,
+    String? asignadoA,
+    DateTime? fechaVencimiento,
+  }) async {
+    try {
+      final params = <String, dynamic>{
+        'p_token': _token,
+        'p_recordatorio_id': id,
+      };
+      if (titulo != null) params['p_titulo'] = titulo;
+      params['p_descripcion'] = descripcion;
+      if (prioridad != null) params['p_prioridad'] = prioridad;
+      if (categoria != null) params['p_categoria'] = categoria;
+      params['p_asignado_a'] = asignadoA;
+      params['p_fecha_vencimiento'] =
+          fechaVencimiento?.toIso8601String().split('T')[0];
+
+      final res = await _client.rpc('editar_recordatorio', params: params);
+      final data = res as Map<String, dynamic>?;
+      if (data != null && data.containsKey('error')) {
+        throw Exception(data['error']);
+      }
+    } catch (e, st) {
+      AppLogger.database('Error editando recordatorio: $e',
+          error: e, stackTrace: st);
       rethrow;
     }
   }
@@ -96,9 +144,9 @@ class RecordatoriosState {
   final String? successMessage;
 
   const RecordatoriosState({
-    this.recordatorios    = const [],
-    this.isLoading        = false,
-    this.isSaving         = false,
+    this.recordatorios = const [],
+    this.isLoading = false,
+    this.isSaving = false,
     this.mostrarResueltos = false,
     this.error,
     this.successMessage,
@@ -114,20 +162,20 @@ class RecordatoriosState {
     bool clearMessages = false,
   }) =>
       RecordatoriosState(
-        recordatorios:    recordatorios    ?? this.recordatorios,
-        isLoading:        isLoading        ?? this.isLoading,
-        isSaving:         isSaving         ?? this.isSaving,
+        recordatorios: recordatorios ?? this.recordatorios,
+        isLoading: isLoading ?? this.isLoading,
+        isSaving: isSaving ?? this.isSaving,
         mostrarResueltos: mostrarResueltos ?? this.mostrarResueltos,
-        error:          clearMessages ? null : error          ?? this.error,
-        successMessage: clearMessages ? null : successMessage ?? this.successMessage,
+        error: clearMessages ? null : error ?? this.error,
+        successMessage:
+            clearMessages ? null : successMessage ?? this.successMessage,
       );
 
   List<RecordatorioEx> get pendientes =>
       recordatorios.where((r) => !r.resuelto).toList();
   int get countUrgentes =>
       pendientes.where((r) => r.prioridad == 'urgente').length;
-  int get countVencidos =>
-      pendientes.where((r) => r.estaVencido).length;
+  int get countVencidos => pendientes.where((r) => r.estaVencido).length;
 }
 
 // ── NOTIFIER ──────────────────────────────────────────────────────────────────
@@ -167,15 +215,16 @@ class RecordatoriosNotifier extends StateNotifier<RecordatoriosState> {
     state = state.copyWith(isSaving: true, clearMessages: true);
     try {
       await _service.crear(
-        titulo:           titulo,
-        descripcion:      descripcion,
-        prioridad:        prioridad,
-        categoria:        categoria.value,
-        asignadoA:        asignadoA,
+        titulo: titulo,
+        descripcion: descripcion,
+        prioridad: prioridad,
+        categoria: categoria.value,
+        asignadoA: asignadoA,
         fechaVencimiento: fechaVencimiento,
       );
       await cargar();
-      state = state.copyWith(isSaving: false, successMessage: 'Recordatorio creado');
+      state = state.copyWith(
+          isSaving: false, successMessage: 'Recordatorio creado');
       return true;
     } catch (e) {
       state = state.copyWith(isSaving: false, error: _msg(e));
@@ -222,6 +271,36 @@ class RecordatoriosNotifier extends StateNotifier<RecordatoriosState> {
       );
     } catch (e) {
       state = state.copyWith(error: _msg(e));
+    }
+  }
+
+  Future<bool> editar({
+    required String id,
+    required String titulo,
+    String? descripcion,
+    String prioridad = 'normal',
+    CategoriaRecordatorio categoria = CategoriaRecordatorio.tarea,
+    String? asignadoA,
+    DateTime? fechaVencimiento,
+  }) async {
+    state = state.copyWith(isSaving: true, clearMessages: true);
+    try {
+      await _service.editar(
+        id: id,
+        titulo: titulo,
+        descripcion: descripcion,
+        prioridad: prioridad,
+        categoria: categoria.value,
+        asignadoA: asignadoA,
+        fechaVencimiento: fechaVencimiento,
+      );
+      await cargar();
+      state = state.copyWith(
+          isSaving: false, successMessage: 'Recordatorio actualizado');
+      return true;
+    } catch (e) {
+      state = state.copyWith(isSaving: false, error: _msg(e));
+      return false;
     }
   }
 

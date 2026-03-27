@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,13 +18,13 @@ class PacienteForm extends ConsumerStatefulWidget {
 }
 
 class _PacienteFormState extends ConsumerState<PacienteForm> {
-  final _formKey     = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
   late final _nombre = TextEditingController();
-  late final _email  = TextEditingController();
-  late final _doc    = TextEditingController();
-  late final _tel    = TextEditingController();
-  late final _dir    = TextEditingController();
-  late final _hist   = TextEditingController();
+  late final _email = TextEditingController();
+  late final _doc = TextEditingController();
+  late final _tel = TextEditingController();
+  late final _dir = TextEditingController();
+  late final _hist = TextEditingController();
   DateTime? _fechaNac;
 
   bool get _esEdicion => widget.paciente != null;
@@ -34,30 +35,47 @@ class _PacienteFormState extends ConsumerState<PacienteForm> {
     if (_esEdicion) {
       final p = widget.paciente!;
       _nombre.text = p.nombre;
-      _email.text  = p.email;
-      _doc.text    = p.numeroDocumento;
-      _tel.text    = p.telefono ?? '';
-      _dir.text    = p.direccion ?? '';
-      _hist.text   = p.historialMedico ?? '';
-      _fechaNac    = p.fechaNacimiento;
+      _email.text = p.email;
+      _doc.text = p.numeroDocumento;
+      _tel.text = p.telefono ?? '';
+      _dir.text = p.direccion ?? '';
+      _hist.text = p.historialMedico ?? '';
+      _fechaNac = p.fechaNacimiento;
     }
   }
 
   @override
   void dispose() {
-    for (final c in [_nombre, _email, _doc, _tel, _dir, _hist]) c.dispose();
+    for (final c in [_nombre, _email, _doc, _tel, _dir, _hist]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final email = _email.text.trim().toLowerCase();
+    final emailDuplicado = ref.read(pacientesProvider).pacientes.any((p) {
+      if (_esEdicion && p.id == widget.paciente!.id) return false;
+      return p.email.trim().toLowerCase() == email;
+    });
+    if (emailDuplicado) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              duration: Duration(seconds: 5),
+              content: Text('Ese email ya estÃ¡ registrado en pacientes')),
+        );
+      }
+      return;
+    }
     final notifier = ref.read(pacientesProvider.notifier);
     bool ok;
     if (_esEdicion) {
       ok = await notifier.actualizar(
         id: widget.paciente!.id,
         nombre: _nombre.text.trim(),
-        email: _email.text.trim(),
+        email: email,
         numeroDocumento: _doc.text.trim(),
         telefono: _tel.text.trim().isEmpty ? null : _tel.text.trim(),
         direccion: _dir.text.trim().isEmpty ? null : _dir.text.trim(),
@@ -67,7 +85,7 @@ class _PacienteFormState extends ConsumerState<PacienteForm> {
     } else {
       ok = await notifier.crear(
         nombre: _nombre.text.trim(),
-        email: _email.text.trim(),
+        email: email,
         numeroDocumento: _doc.text.trim(),
         telefono: _tel.text.trim().isEmpty ? null : _tel.text.trim(),
         direccion: _dir.text.trim().isEmpty ? null : _dir.text.trim(),
@@ -99,16 +117,24 @@ class _PacienteFormState extends ConsumerState<PacienteForm> {
                   keyboard: TextInputType.emailAddress,
                   required: true,
                   validator: (v) => (v != null && !v.contains('@'))
-                      ? 'Email inválido'
+                      ? 'Email invÃ¡lido'
                       : null),
               SizedBox(height: 14.h),
-              _field(_doc, 'Número de documento', Icons.badge_outlined,
-                  required: true),
+              _field(_doc, 'NÃºmero de documento', Icons.badge_outlined,
+                  required: true,
+                  keyboard: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(15),
+                  ]),
               SizedBox(height: 14.h),
-              _field(_tel, 'Teléfono', Icons.phone_outlined,
-                  keyboard: TextInputType.phone),
+              _field(_tel, 'TelÃ©fono', Icons.phone_outlined,
+                  keyboard: TextInputType.phone,
+                  inputFormatters: [
+                    _ColombiaPhoneFormatter(),
+                  ]),
               SizedBox(height: 14.h),
-              _field(_dir, 'Dirección', Icons.location_on_outlined),
+              _field(_dir, 'DirecciÃ³n', Icons.location_on_outlined),
               SizedBox(height: 14.h),
 
               // Fecha de nacimiento
@@ -144,7 +170,8 @@ class _PacienteFormState extends ConsumerState<PacienteForm> {
               ),
               SizedBox(height: 14.h),
 
-              _field(_hist, 'Historial médico', Icons.medical_services_outlined,
+              _field(
+                  _hist, 'Historial mÃ©dico', Icons.medical_services_outlined,
                   maxLines: 3),
               SizedBox(height: 24.h),
 
@@ -187,19 +214,41 @@ class _PacienteFormState extends ConsumerState<PacienteForm> {
     bool required = false,
     int maxLines = 1,
     String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextFormField(
       controller: ctrl,
       keyboardType: keyboard,
       maxLines: maxLines,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
       ),
       validator: validator ??
           (required
-              ? (v) => (v == null || v.trim().isEmpty) ? 'Campo requerido' : null
+              ? (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Campo requerido' : null
               : null),
+    );
+  }
+}
+
+class _ColombiaPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final trimmed = digits.length > 10 ? digits.substring(0, 10) : digits;
+    if (trimmed.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+    final withPrefix = '+57 $trimmed';
+    return TextEditingValue(
+      text: withPrefix,
+      selection: TextSelection.collapsed(offset: withPrefix.length),
     );
   }
 }

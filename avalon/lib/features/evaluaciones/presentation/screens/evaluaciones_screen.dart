@@ -33,22 +33,23 @@ class _EvaluacionesScreenState extends ConsumerState<EvaluacionesScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref
-        .read(evaluacionesProvider.notifier)
-        .cargar(pacienteId: widget.pacienteIdFiltro));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(evaluacionesProvider.notifier)
+          .cargar(pacienteId: widget.pacienteIdFiltro);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final state   = ref.watch(evaluacionesProvider);
-    final user    = ref.watch(currentUserProvider);
+    final state = ref.watch(evaluacionesProvider);
+    final user = ref.watch(currentUserProvider);
     final puedeCrear = user?.puedeEscribirNotas ?? false;
 
     var lista = state.evaluaciones;
     if (widget.pacienteIdFiltro != null) {
-      lista = lista
-          .where((e) => e.pacienteId == widget.pacienteIdFiltro)
-          .toList();
+      lista =
+          lista.where((e) => e.pacienteId == widget.pacienteIdFiltro).toList();
     }
     if (_filtroEscala != null) {
       lista = lista.where((e) => e.escalaEnum == _filtroEscala).toList();
@@ -58,6 +59,7 @@ class _EvaluacionesScreenState extends ConsumerState<EvaluacionesScreen> {
     ref.listen(evaluacionesProvider, (_, next) {
       if (next.successMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(next.successMessage!),
           backgroundColor: AppTheme.accent,
           behavior: SnackBarBehavior.floating,
@@ -66,6 +68,7 @@ class _EvaluacionesScreenState extends ConsumerState<EvaluacionesScreen> {
       }
       if (next.error != null && !next.isLoading) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(next.error!),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
@@ -77,7 +80,7 @@ class _EvaluacionesScreenState extends ConsumerState<EvaluacionesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.pacienteNombreFiltro != null
-            ? 'Evaluaciones · ${widget.pacienteNombreFiltro}'
+            ? 'Evaluaciones Â· ${widget.pacienteNombreFiltro}'
             : context.t.evaluaciones),
         automaticallyImplyLeading: widget.pacienteIdFiltro != null,
         actions: [
@@ -106,34 +109,35 @@ class _EvaluacionesScreenState extends ConsumerState<EvaluacionesScreen> {
           ),
         ),
       ),
-      body: _desktopWrap(
+      body: desktopWrap(
         context,
         state.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : lista.isEmpty
-              ? _Empty(
-                  puedeCrear: puedeCrear,
-                  onCrear: () => _crearEvaluacion(),
-                )
-              : RefreshIndicator(
-                  onRefresh: () => ref
-                      .read(evaluacionesProvider.notifier)
-                      .cargar(pacienteId: widget.pacienteIdFiltro),
-                  child: ListView.builder(
-                    padding: EdgeInsets.all(16.r),
-                    itemCount: lista.length,
-                    itemBuilder: (_, i) => _EvaluacionCard(
-                      ev: lista[i],
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  EvaluacionDetalleScreen(evaluacion: lista[i]))),
-                      onEliminar: puedeCrear
-                          ? () => _confirmarEliminar(lista[i])
-                          : null,
+            ? const Center(child: CircularProgressIndicator())
+            : lista.isEmpty
+                ? _Empty(
+                    puedeCrear: puedeCrear,
+                    onCrear: () => _crearEvaluacion(),
+                  )
+                : RefreshIndicator(
+                    onRefresh: () => ref
+                        .read(evaluacionesProvider.notifier)
+                        .cargar(pacienteId: widget.pacienteIdFiltro),
+                    child: ListView.builder(
+                      padding: EdgeInsets.all(16.r),
+                      itemCount: lista.length,
+                      itemBuilder: (_, i) => _EvaluacionCard(
+                        ev: lista[i],
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => EvaluacionDetalleScreen(
+                                    evaluacion: lista[i]))),
+                        onEliminar: puedeCrear
+                            ? () => _confirmarEliminar(lista[i])
+                            : null,
+                      ),
                     ),
                   ),
-                ),
       ),
       floatingActionButton: puedeCrear
           ? FloatingActionButton.extended(
@@ -165,9 +169,8 @@ class _EvaluacionesScreenState extends ConsumerState<EvaluacionesScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar evaluación'),
-        content: Text(
-            '¿Eliminar esta evaluación ${ev.escalaEnum.nombre} de '
+        title: const Text('Eliminar evaluaciÃ³n'),
+        content: Text('Â¿Eliminar esta evaluaciÃ³n ${ev.escalaEnum.nombre} de '
             '${ev.pacienteNombre ?? ev.pacienteId}?'),
         actions: [
           TextButton(
@@ -187,7 +190,7 @@ class _EvaluacionesScreenState extends ConsumerState<EvaluacionesScreen> {
   }
 }
 
-// ── WIDGETS ───────────────────────────────────────────────────────────────────
+// â”€â”€ WIDGETS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _Chip extends StatelessWidget {
   final String label;
@@ -230,7 +233,7 @@ class _EvaluacionCard extends StatelessWidget {
 
   Color get _severidadColor {
     final nivel = ev.nivelSeveridad;
-    if (nivel == 'Mínima' || nivel == 'Leve') return AppTheme.accent;
+    if (nivel == 'MÃ­nima' || nivel == 'Leve') return AppTheme.accent;
     if (nivel == 'Moderada') return AppTheme.warning;
     return AppTheme.error;
   }
@@ -238,9 +241,8 @@ class _EvaluacionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final maxPts = ev.escalaEnum.puntuacionMax;
-    final pct    = maxPts > 0
-        ? (ev.puntuacionTotal / maxPts).clamp(0.0, 1.0)
-        : 0.0;
+    final pct =
+        maxPts > 0 ? (ev.puntuacionTotal / maxPts).clamp(0.0, 1.0) : 0.0;
 
     return Card(
       margin: EdgeInsets.only(bottom: 12.h),
@@ -255,8 +257,7 @@ class _EvaluacionCard extends StatelessWidget {
               // Cabecera
               Row(children: [
                 Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
                     color: AppTheme.accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8.r),
@@ -285,7 +286,7 @@ class _EvaluacionCard extends StatelessWidget {
               ]),
               SizedBox(height: 10.h),
 
-              // Puntuación + barra de progreso
+              // PuntuaciÃ³n + barra de progreso
               Row(children: [
                 Text('${ev.puntuacionTotal}',
                     style: GoogleFonts.inter(
@@ -336,7 +337,8 @@ class _EvaluacionCard extends StatelessWidget {
                 ),
                 if (ev.observaciones != null) ...[
                   SizedBox(width: 12.w),
-                  Icon(Icons.notes_outlined, size: 12.sp, color: AppTheme.textGrey),
+                  Icon(Icons.notes_outlined,
+                      size: 12.sp, color: AppTheme.textGrey),
                 ],
               ]),
             ],
@@ -358,38 +360,17 @@ class _Empty extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Iconsax.chart_2, size: 72.sp,
-                color: AppTheme.textGrey.withValues(alpha: 0.3)),
+            Icon(Iconsax.chart_2,
+                size: 72.sp, color: AppTheme.textGrey.withValues(alpha: 0.3)),
             SizedBox(height: 16.h),
             Text(context.t.sinEvaluaciones,
                 style: GoogleFonts.inter(
                     fontSize: 18.sp, color: AppTheme.textGrey)),
             SizedBox(height: 8.h),
-            Text('Registra la primera con el botón +',
+            Text('Registra la primera con el botÃ³n +',
                 style: GoogleFonts.inter(
                     fontSize: 13.sp, color: AppTheme.textGrey)),
-            if (puedeCrear) ...[
-              SizedBox(height: 24.h),
-              ElevatedButton.icon(
-                onPressed: onCrear,
-                icon: const Icon(Icons.add_chart),
-                label: Text(context.t.nuevaEvaluacion),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accent),
-              ),
-            ],
           ],
         ),
       );
-}
-
-// Helper de responsive para este screen
-Widget _desktopWrap(BuildContext context, Widget child) {
-  if (!context.isDesktop) return child;
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: child,
-    ),
-  );
 }

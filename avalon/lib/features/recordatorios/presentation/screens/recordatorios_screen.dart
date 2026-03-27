@@ -26,7 +26,7 @@ class _RecordatoriosScreenState extends ConsumerState<RecordatoriosScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(recordatoriosExProvider.notifier).cargar();
       ref.read(usuariosOrgProvider.notifier).cargar();
     });
@@ -34,8 +34,8 @@ class _RecordatoriosScreenState extends ConsumerState<RecordatoriosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state   = ref.watch(recordatoriosExProvider);
-    final user    = ref.watch(currentUserProvider);
+    final state = ref.watch(recordatoriosExProvider);
+    final user = ref.watch(currentUserProvider);
     final esAdmin = user?.puedeGestionarUsuarios ?? false;
 
     var lista = state.recordatorios;
@@ -47,6 +47,7 @@ class _RecordatoriosScreenState extends ConsumerState<RecordatoriosScreen> {
     ref.listen(recordatoriosExProvider, (_, next) {
       if (next.successMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(next.successMessage!),
           backgroundColor: AppTheme.accent,
           behavior: SnackBarBehavior.floating,
@@ -55,6 +56,7 @@ class _RecordatoriosScreenState extends ConsumerState<RecordatoriosScreen> {
       }
       if (next.error != null && !next.isLoading) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(next.error!),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
@@ -95,12 +97,14 @@ class _RecordatoriosScreenState extends ConsumerState<RecordatoriosScreen> {
             tooltip: state.mostrarResueltos
                 ? 'Ocultar resueltos'
                 : 'Mostrar resueltos',
-            onPressed: () =>
-                ref.read(recordatoriosExProvider.notifier).toggleMostrarResueltos(),
+            onPressed: () => ref
+                .read(recordatoriosExProvider.notifier)
+                .toggleMostrarResueltos(),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.read(recordatoriosExProvider.notifier).cargar(),
+            onPressed: () =>
+                ref.read(recordatoriosExProvider.notifier).cargar(),
           ),
         ],
         bottom: PreferredSize(
@@ -114,7 +118,9 @@ class _RecordatoriosScreenState extends ConsumerState<RecordatoriosScreen> {
                   _CatChip('Todos', null, _filtroCategoria,
                       (v) => setState(() => _filtroCategoria = v)),
                   ...CategoriaRecordatorio.values.map((c) => _CatChip(
-                        c.label, c, _filtroCategoria,
+                        c.label,
+                        c,
+                        _filtroCategoria,
                         (v) => setState(() => _filtroCategoria = v),
                       )),
                 ],
@@ -123,32 +129,35 @@ class _RecordatoriosScreenState extends ConsumerState<RecordatoriosScreen> {
           ),
         ),
       ),
-      body: _desktopWrap(
+      body: desktopWrap(
         context,
         state.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : lista.isEmpty
-              ? _EmptyState(onCrear: () => _showCrearDialog())
-              : RefreshIndicator(
-                  onRefresh: () =>
-                      ref.read(recordatoriosExProvider.notifier).cargar(),
-                  child: ListView.builder(
-                    padding: EdgeInsets.all(16.r),
-                    itemCount: lista.length,
-                    itemBuilder: (_, i) => _RecordatorioCard(
-                      rec: lista[i],
-                      esAdmin: esAdmin,
-                      onResolver: () =>
-                          ref.read(recordatoriosExProvider.notifier)
-                              .resolver(lista[i].id),
-                      onEliminar: esAdmin
-                          ? () => ref
-                              .read(recordatoriosExProvider.notifier)
-                              .eliminar(lista[i].id)
-                          : null,
+            ? const Center(child: CircularProgressIndicator())
+            : lista.isEmpty
+                ? _EmptyState(onCrear: () => _showCrearDialog())
+                : RefreshIndicator(
+                    onRefresh: () =>
+                        ref.read(recordatoriosExProvider.notifier).cargar(),
+                    child: ListView.builder(
+                      padding: EdgeInsets.all(16.r),
+                      itemCount: lista.length,
+                      itemBuilder: (_, i) => _RecordatorioCard(
+                        rec: lista[i],
+                        esAdmin: esAdmin,
+                        onEditar: !lista[i].resuelto
+                            ? () => _showEditarDialog(lista[i])
+                            : null,
+                        onResolver: () => ref
+                            .read(recordatoriosExProvider.notifier)
+                            .resolver(lista[i].id),
+                        onEliminar: esAdmin
+                            ? () => ref
+                                .read(recordatoriosExProvider.notifier)
+                                .eliminar(lista[i].id)
+                            : null,
+                      ),
                     ),
                   ),
-                ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCrearDialog,
@@ -172,11 +181,38 @@ class _RecordatoriosScreenState extends ConsumerState<RecordatoriosScreen> {
         currentUserId: ref.read(currentUserProvider)?.id ?? '',
         onGuardar: (datos) async {
           final ok = await ref.read(recordatoriosExProvider.notifier).crear(
-                titulo:           datos.titulo,
-                descripcion:      datos.descripcion,
-                prioridad:        datos.prioridad,
-                categoria:        datos.categoria,
-                asignadoA:        datos.asignadoA,
+                titulo: datos.titulo,
+                descripcion: datos.descripcion,
+                prioridad: datos.prioridad,
+                categoria: datos.categoria,
+                asignadoA: datos.asignadoA,
+                fechaVencimiento: datos.fechaVencimiento,
+              );
+          if (ok && mounted) Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _showEditarDialog(RecordatorioEx rec) {
+    final usuarios = ref.read(usuariosOrgProvider).usuarios;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      builder: (_) => _FormRecordatorio(
+        usuarios: usuarios,
+        currentUserId: ref.read(currentUserProvider)?.id ?? '',
+        inicial: rec,
+        onGuardar: (datos) async {
+          final ok = await ref.read(recordatoriosExProvider.notifier).editar(
+                id: rec.id,
+                titulo: datos.titulo,
+                descripcion: datos.descripcion,
+                prioridad: datos.prioridad,
+                categoria: datos.categoria,
+                asignadoA: datos.asignadoA,
                 fechaVencimiento: datos.fechaVencimiento,
               );
           if (ok && mounted) Navigator.pop(context);
@@ -186,7 +222,7 @@ class _RecordatoriosScreenState extends ConsumerState<RecordatoriosScreen> {
   }
 }
 
-// ── WIDGETS ───────────────────────────────────────────────────────────────────
+// â”€â”€ WIDGETS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _CatChip extends StatelessWidget {
   final String label;
@@ -206,7 +242,8 @@ class _CatChip extends StatelessWidget {
         margin: EdgeInsets.only(right: 8.w),
         padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.15),
+          color:
+              isSelected ? Colors.white : Colors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(20.r),
         ),
         child: Text(
@@ -225,12 +262,14 @@ class _CatChip extends StatelessWidget {
 class _RecordatorioCard extends StatelessWidget {
   final RecordatorioEx rec;
   final bool esAdmin;
+  final VoidCallback? onEditar;
   final VoidCallback onResolver;
   final VoidCallback? onEliminar;
 
   const _RecordatorioCard({
     required this.rec,
     required this.esAdmin,
+    this.onEditar,
     required this.onResolver,
     this.onEliminar,
   });
@@ -266,7 +305,7 @@ class _RecordatorioCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Fila 1: Categoría + prioridad + estado
+                      // Fila 1: CategorÃ­a + prioridad + estado
                       Row(
                         children: [
                           _BadgeCategoria(rec.categoria),
@@ -296,22 +335,21 @@ class _RecordatorioCard extends StatelessWidget {
                       ),
                       SizedBox(height: 8.h),
 
-                      // Título
+                      // TÃ­tulo
                       Text(
                         rec.titulo,
                         style: GoogleFonts.inter(
                           fontSize: 14.sp,
                           fontWeight: FontWeight.w600,
-                          decoration: rec.resuelto
-                              ? TextDecoration.lineThrough
-                              : null,
+                          decoration:
+                              rec.resuelto ? TextDecoration.lineThrough : null,
                           color: rec.resuelto
                               ? AppTheme.textGrey
                               : AppTheme.textDark,
                         ),
                       ),
 
-                      // Descripción
+                      // DescripciÃ³n
                       if (rec.descripcion != null) ...[
                         SizedBox(height: 4.h),
                         Text(
@@ -329,7 +367,8 @@ class _RecordatorioCard extends StatelessWidget {
                       // Footer: creado por, asignado a, vencimiento
                       Row(
                         children: [
-                          Icon(Iconsax.clock, size: 11.sp, color: AppTheme.textGrey),
+                          Icon(Iconsax.clock,
+                              size: 11.sp, color: AppTheme.textGrey),
                           SizedBox(width: 3.w),
                           Text(
                             _tiempoRelativo(rec.fechaRegistro),
@@ -341,21 +380,27 @@ class _RecordatorioCard extends StatelessWidget {
                             Icon(
                               Icons.alarm,
                               size: 11.sp,
-                              color: vencido ? AppTheme.error : AppTheme.textGrey,
+                              color:
+                                  vencido ? AppTheme.error : AppTheme.textGrey,
                             ),
                             SizedBox(width: 3.w),
                             Text(
-                              DateFormat('dd/MM/yy').format(rec.fechaVencimiento!),
+                              DateFormat('dd/MM/yy')
+                                  .format(rec.fechaVencimiento!),
                               style: GoogleFonts.inter(
                                 fontSize: 10.sp,
-                                color: vencido ? AppTheme.error : AppTheme.textGrey,
-                                fontWeight: vencido ? FontWeight.w600 : FontWeight.w400,
+                                color: vencido
+                                    ? AppTheme.error
+                                    : AppTheme.textGrey,
+                                fontWeight:
+                                    vencido ? FontWeight.w600 : FontWeight.w400,
                               ),
                             ),
                           ],
                           if (rec.asignadoANombre != null) ...[
                             SizedBox(width: 8.w),
-                            Icon(Iconsax.user, size: 11.sp, color: AppTheme.primary),
+                            Icon(Iconsax.user,
+                                size: 11.sp, color: AppTheme.primary),
                             SizedBox(width: 3.w),
                             Expanded(
                               child: Text(
@@ -369,6 +414,22 @@ class _RecordatorioCard extends StatelessWidget {
                             const Spacer(),
 
                           // Acciones
+                          if (onEditar != null) ...[
+                            GestureDetector(
+                              onTap: onEditar,
+                              child: Container(
+                                padding: EdgeInsets.all(6.r),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppTheme.primary.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.edit_outlined,
+                                    size: 14.sp, color: AppTheme.primary),
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                          ],
                           if (!rec.resuelto)
                             GestureDetector(
                               onTap: onResolver,
@@ -425,10 +486,14 @@ class _BadgeCategoria extends StatelessWidget {
 
   Color get _color {
     switch (cat) {
-      case CategoriaRecordatorio.paciente: return AppTheme.primary;
-      case CategoriaRecordatorio.admin:    return const Color(0xFFD97706);
-      case CategoriaRecordatorio.cita:     return AppTheme.secondary;
-      case CategoriaRecordatorio.tarea:    return AppTheme.accent;
+      case CategoriaRecordatorio.paciente:
+        return AppTheme.primary;
+      case CategoriaRecordatorio.admin:
+        return const Color(0xFFD97706);
+      case CategoriaRecordatorio.cita:
+        return AppTheme.secondary;
+      case CategoriaRecordatorio.tarea:
+        return AppTheme.accent;
     }
   }
 
@@ -458,8 +523,11 @@ class _BadgePrioridad extends StatelessWidget {
           borderRadius: BorderRadius.circular(6.r),
         ),
         child: Text(
-          prioridad == 'urgente' ? '🔴 Urgente' :
-          prioridad == 'normal'  ? '🟡 Normal' : '🟢 Baja',
+          prioridad == 'urgente'
+              ? 'ðŸ”´ Urgente'
+              : prioridad == 'normal'
+                  ? 'ðŸŸ¡ Normal'
+                  : 'ðŸŸ¢ Baja',
           style: GoogleFonts.inter(
               fontSize: 10.sp, color: color, fontWeight: FontWeight.w600),
         ),
@@ -474,7 +542,7 @@ class _BadgeVencido extends StatelessWidget {
           color: AppTheme.error.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6.r),
         ),
-        child: Text('⚠ Vencido',
+        child: Text('âš  Vencido',
             style: GoogleFonts.inter(
                 fontSize: 10.sp,
                 color: AppTheme.error,
@@ -490,7 +558,7 @@ class _BadgeHoy extends StatelessWidget {
           color: AppTheme.warning.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6.r),
         ),
-        child: Text('⏰ Hoy',
+        child: Text('â° Hoy',
             style: GoogleFonts.inter(
                 fontSize: 10.sp,
                 color: AppTheme.warning,
@@ -508,14 +576,13 @@ class _EmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Iconsax.notification,
-                size: 72.sp,
-                color: AppTheme.textGrey.withValues(alpha: 0.3)),
+                size: 72.sp, color: AppTheme.textGrey.withValues(alpha: 0.3)),
             SizedBox(height: 16.h),
             Text(context.t.sinRecordatorios,
                 style: GoogleFonts.inter(
                     fontSize: 16.sp, color: AppTheme.textGrey)),
             SizedBox(height: 8.h),
-            Text('Crea uno con el botón +',
+            Text('Crea uno con el botÃ³n +',
                 style: GoogleFonts.inter(
                     fontSize: 13.sp, color: AppTheme.textGrey)),
             SizedBox(height: 24.h),
@@ -529,7 +596,7 @@ class _EmptyState extends StatelessWidget {
       );
 }
 
-// ── Formulario de creación ────────────────────────────────────────────────────
+// â”€â”€ Formulario de creaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _FormData {
   final String titulo;
@@ -552,11 +619,13 @@ class _FormData {
 class _FormRecordatorio extends StatefulWidget {
   final List<dynamic> usuarios;
   final String currentUserId;
+  final RecordatorioEx? inicial;
   final Future<void> Function(_FormData) onGuardar;
 
   const _FormRecordatorio({
     required this.usuarios,
     required this.currentUserId,
+    this.inicial,
     required this.onGuardar,
   });
 
@@ -566,12 +635,25 @@ class _FormRecordatorio extends StatefulWidget {
 
 class _FormRecordatorioState extends State<_FormRecordatorio> {
   final _tituloCtrl = TextEditingController();
-  final _descCtrl   = TextEditingController();
+  final _descCtrl = TextEditingController();
   String _prioridad = 'normal';
   CategoriaRecordatorio _categoria = CategoriaRecordatorio.tarea;
   String? _asignadoA;
   DateTime? _fechaVenc;
   bool _guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final inicial = widget.inicial;
+    if (inicial == null) return;
+    _tituloCtrl.text = inicial.titulo;
+    _descCtrl.text = inicial.descripcion ?? '';
+    _prioridad = inicial.prioridad;
+    _categoria = inicial.categoria;
+    _asignadoA = inicial.asignadoA;
+    _fechaVenc = inicial.fechaVencimiento;
+  }
 
   @override
   void dispose() {
@@ -585,7 +667,9 @@ class _FormRecordatorioState extends State<_FormRecordatorio> {
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 20.w, right: 20.w, top: 20.h,
+        left: 20.w,
+        right: 20.w,
+        top: 20.h,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -595,34 +679,38 @@ class _FormRecordatorioState extends State<_FormRecordatorio> {
             // Handle
             Center(
               child: Container(
-                width: 40.w, height: 4.h,
+                width: 40.w,
+                height: 4.h,
                 margin: EdgeInsets.only(bottom: 14.h),
                 decoration: BoxDecoration(
                     color: AppTheme.divider,
                     borderRadius: BorderRadius.circular(2.r)),
               ),
             ),
-            Text(context.t.nuevoRecordatorio,
+            Text(
+                widget.inicial == null
+                    ? context.t.nuevoRecordatorio
+                    : 'Editar recordatorio',
                 style: GoogleFonts.inter(
                     fontSize: 18.sp, fontWeight: FontWeight.bold)),
             SizedBox(height: 16.h),
 
-            // Título
+            // TÃ­tulo
             TextField(
               controller: _tituloCtrl,
               decoration: const InputDecoration(
-                labelText: 'Título *',
+                labelText: 'TÃ­tulo *',
                 prefixIcon: Icon(Icons.title),
               ),
             ),
             SizedBox(height: 12.h),
 
-            // Descripción
+            // DescripciÃ³n
             TextField(
               controller: _descCtrl,
               maxLines: 2,
               decoration: const InputDecoration(
-                labelText: 'Descripción (opcional)',
+                labelText: 'DescripciÃ³n (opcional)',
                 prefixIcon: Icon(Icons.notes),
                 alignLabelWithHint: true,
               ),
@@ -631,28 +719,27 @@ class _FormRecordatorioState extends State<_FormRecordatorio> {
 
             // Prioridad
             DropdownButtonFormField<String>(
-              value: _prioridad,
+              initialValue: _prioridad,
               decoration: const InputDecoration(
                   labelText: 'Prioridad',
                   prefixIcon: Icon(Icons.flag_outlined)),
               items: const [
-                DropdownMenuItem(value: 'baja',    child: Text('🟢 Baja')),
-                DropdownMenuItem(value: 'normal',  child: Text('🟡 Normal')),
-                DropdownMenuItem(value: 'urgente', child: Text('🔴 Urgente')),
+                DropdownMenuItem(value: 'baja', child: Text('ðŸŸ¢ Baja')),
+                DropdownMenuItem(value: 'normal', child: Text('ðŸŸ¡ Normal')),
+                DropdownMenuItem(value: 'urgente', child: Text('ðŸ”´ Urgente')),
               ],
               onChanged: (v) => setState(() => _prioridad = v!),
             ),
             SizedBox(height: 12.h),
 
-            // Categoría
+            // CategorÃ­a
             DropdownButtonFormField<CategoriaRecordatorio>(
-              value: _categoria,
+              initialValue: _categoria,
               decoration: const InputDecoration(
-                  labelText: 'Categoría',
+                  labelText: 'CategorÃ­a',
                   prefixIcon: Icon(Icons.category_outlined)),
               items: CategoriaRecordatorio.values
-                  .map((c) => DropdownMenuItem(
-                      value: c, child: Text(c.label)))
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
                   .toList(),
               onChanged: (v) => setState(() => _categoria = v!),
             ),
@@ -661,7 +748,7 @@ class _FormRecordatorioState extends State<_FormRecordatorio> {
             // Asignar a (si hay usuarios cargados)
             if (widget.usuarios.isNotEmpty) ...[
               DropdownButtonFormField<String?>(
-                value: _asignadoA,
+                initialValue: _asignadoA,
                 decoration: const InputDecoration(
                     labelText: 'Asignar a (opcional)',
                     prefixIcon: Icon(Icons.person_outline)),
@@ -723,7 +810,7 @@ class _FormRecordatorioState extends State<_FormRecordatorio> {
             ),
             SizedBox(height: 20.h),
 
-            // Botón
+            // BotÃ³n
             SizedBox(
               width: double.infinity,
               height: 50.h,
@@ -731,7 +818,9 @@ class _FormRecordatorioState extends State<_FormRecordatorio> {
                 onPressed: _guardando ? null : _guardar,
                 child: _guardando
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Crear recordatorio'),
+                    : Text(widget.inicial == null
+                        ? 'Crear recordatorio'
+                        : 'Guardar cambios'),
               ),
             ),
             SizedBox(height: 20.h),
@@ -743,30 +832,20 @@ class _FormRecordatorioState extends State<_FormRecordatorio> {
 
   Future<void> _guardar() async {
     if (_tituloCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('El título es obligatorio')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          duration: Duration(seconds: 5),
+          content: Text('El tÃ­tulo es obligatorio')));
       return;
     }
     setState(() => _guardando = true);
     await widget.onGuardar(_FormData(
-      titulo:           _tituloCtrl.text.trim(),
-      descripcion:      _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-      prioridad:        _prioridad,
-      categoria:        _categoria,
-      asignadoA:        _asignadoA,
+      titulo: _tituloCtrl.text.trim(),
+      descripcion: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+      prioridad: _prioridad,
+      categoria: _categoria,
+      asignadoA: _asignadoA,
       fechaVencimiento: _fechaVenc,
     ));
     setState(() => _guardando = false);
   }
-}
-
-// Helper de responsive para este screen
-Widget _desktopWrap(BuildContext context, Widget child) {
-  if (!context.isDesktop) return child;
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: child,
-    ),
-  );
 }

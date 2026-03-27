@@ -1,29 +1,36 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/theme/app_theme.dart';
+
 import '../../../../core/layout/responsive.dart';
-import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../features/pacientes/domain/paciente.dart';
-import '../../../../features/pacientes/presentation/providers/paciente_provider.dart';
-import '../../../../features/pacientes/presentation/screens/paciente_detalle_screen.dart';
-import '../../../../features/notas/domain/nota_terapia.dart';
-import '../../../../features/notas/presentation/providers/notas_provider.dart';
-import '../../../../features/notas/presentation/screens/nota_detalle_screen.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../features/citas/domain/cita.dart';
 import '../../../../features/citas/presentation/providers/citas_provider.dart';
 import '../../../../features/citas/presentation/screens/cita_detalle_screen.dart';
+import '../../../../features/evaluaciones/domain/evaluacion.dart';
+import '../../../../features/evaluaciones/presentation/providers/evaluaciones_provider.dart';
+import '../../../../features/evaluaciones/presentation/screens/evaluacion_detalle_screen.dart';
+import '../../../../features/notas/domain/nota_terapia.dart';
+import '../../../../features/notas/presentation/providers/notas_provider.dart';
+import '../../../../features/notas/presentation/screens/nota_detalle_screen.dart';
+import '../../../../features/pacientes/domain/paciente.dart';
+import '../../../../features/pacientes/presentation/providers/paciente_provider.dart';
+import '../../../../features/pacientes/presentation/screens/paciente_detalle_screen.dart';
+import '../../../../features/recordatorios/domain/recordatorio_ex.dart';
+import '../../../../features/recordatorios/presentation/providers/recordatorios_provider.dart';
+import '../../../../features/recordatorios/presentation/screens/recordatorios_screen.dart';
 
-// Resultado unificado de búsqueda
 class _Resultado {
-  final String tipo;      // 'paciente' | 'cita' | 'nota'
+  final String tipo;
   final String titulo;
   final String subtitulo;
-  final String? metadato; // fecha, estado, etc.
-  final dynamic objeto;   // Paciente | Cita | NotaTerapia
+  final String? metadato;
+  final dynamic objeto;
 
   const _Resultado({
     required this.tipo,
@@ -43,89 +50,189 @@ class BusquedaGlobalScreen extends ConsumerStatefulWidget {
 }
 
 class _BusquedaGlobalScreenState extends ConsumerState<BusquedaGlobalScreen> {
-  final _ctrl    = TextEditingController();
-  final _focus   = FocusNode();
-  String _query  = '';
-  String _filtro = 'todo'; // 'todo' | 'pacientes' | 'citas' | 'notas'
+  final _ctrl = TextEditingController();
+  final _focus = FocusNode();
+  Timer? _debounce;
+
+  String _query = '';
+  String _filtro = 'todo';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _cargarDatosIniciales());
+  }
+
+  Future<void> _cargarDatosIniciales() async {
+    final tareas = <Future<void>>[];
+
+    if (ref.read(pacientesProvider).pacientes.isEmpty) {
+      tareas.add(ref.read(pacientesProvider.notifier).cargar());
+    }
+
+    final citas = ref.read(citasProvider);
+    if (citas.citas.isEmpty &&
+        citas.citasHoy.isEmpty &&
+        citas.citasSemana.isEmpty) {
+      tareas.add(ref.read(citasProvider.notifier).cargarTodo());
+    }
+
+    if (ref.read(notasProvider).notas.isEmpty) {
+      tareas.add(ref.read(notasProvider.notifier).cargarTodas());
+    }
+
+    if (ref.read(recordatoriosExProvider).recordatorios.isEmpty) {
+      tareas.add(ref.read(recordatoriosExProvider.notifier).cargar());
+    }
+
+    if (ref.read(evaluacionesProvider).evaluaciones.isEmpty) {
+      tareas.add(ref.read(evaluacionesProvider.notifier).cargar());
+    }
+
+    if (tareas.isNotEmpty) {
+      await Future.wait(tareas);
+    }
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _ctrl.dispose();
     _focus.dispose();
     super.dispose();
   }
 
-  List<_Resultado> _buscar() {
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() => _query = value);
+    });
+  }
+
+  List<_Resultado> _buscar({
+    required List<Paciente> pacientes,
+    required CitasState citasState,
+    required List<NotaTerapia> notas,
+    required List<RecordatorioEx> recordatorios,
+    required List<Evaluacion> evaluaciones,
+  }) {
     final q = _query.toLowerCase().trim();
     if (q.length < 2) return [];
 
     final resultados = <_Resultado>[];
 
-    // ── Pacientes ──────────────────────────────────────────────────────
     if (_filtro == 'todo' || _filtro == 'pacientes') {
-      final pacientes = ref.read(pacientesProvider).pacientes;
       for (final p in pacientes) {
         if (p.nombre.toLowerCase().contains(q) ||
             p.email.toLowerCase().contains(q) ||
             p.numeroDocumento.toLowerCase().contains(q) ||
             (p.telefono?.toLowerCase().contains(q) ?? false)) {
-          resultados.add(_Resultado(
-            tipo: 'paciente',
-            titulo: p.nombre,
-            subtitulo: p.email,
-            metadato: p.activo ? 'Activo' : 'Inactivo',
-            objeto: p,
-          ));
+          resultados.add(
+            _Resultado(
+              tipo: 'paciente',
+              titulo: p.nombre,
+              subtitulo: p.email,
+              metadato: p.activo ? 'Activo' : 'Inactivo',
+              objeto: p,
+            ),
+          );
         }
       }
     }
 
-    // ── Citas ──────────────────────────────────────────────────────────
     if (_filtro == 'todo' || _filtro == 'citas') {
-      final citasState = ref.read(citasProvider);
-      final todasCitas = [
+      final todasCitas = <Cita>{
         ...citasState.citasHoy,
         ...citasState.citasSemana,
         ...citasState.citas,
-      ].toSet().toList(); // eliminar duplicados
+      }.toList();
 
       for (final c in todasCitas) {
-        final nombre = (c.pacienteNombre ?? c.pacienteId).toLowerCase();
-        final psi    = (c.psicologoNombre ?? c.psicologoId).toLowerCase();
-        if (nombre.contains(q) || psi.contains(q) ||
-            c.tipoSesion.label.toLowerCase().contains(q)) {
-          resultados.add(_Resultado(
-            tipo: 'cita',
-            titulo: c.pacienteNombre ?? c.pacienteId,
-            subtitulo: '${c.tipoSesion.label} · ${c.psicologoNombre ?? c.psicologoId}',
-            metadato: DateFormat('dd/MM/yy HH:mm').format(c.fechaHora),
-            objeto: c,
-          ));
+        final paciente = (c.pacienteNombre ?? c.pacienteId).toLowerCase();
+        final psicologo = (c.psicologoNombre ?? c.psicologoId).toLowerCase();
+        final tipo = c.tipoSesion.label.toLowerCase();
+        final estado = c.estadoLabel.toLowerCase();
+
+        if (paciente.contains(q) ||
+            psicologo.contains(q) ||
+            tipo.contains(q) ||
+            estado.contains(q)) {
+          resultados.add(
+            _Resultado(
+              tipo: 'cita',
+              titulo: c.pacienteNombre ?? c.pacienteId,
+              subtitulo:
+                  '${c.tipoSesion.label} · ${c.psicologoNombre ?? c.psicologoId}',
+              metadato: DateFormat('dd/MM/yy HH:mm').format(c.fechaHora),
+              objeto: c,
+            ),
+          );
         }
       }
     }
 
-    // ── Notas ──────────────────────────────────────────────────────────
     if (_filtro == 'todo' || _filtro == 'notas') {
-      final notas = ref.read(notasProvider).notas;
       for (final n in notas) {
         if (n.contenido.toLowerCase().contains(q) ||
             (n.pacienteNombre?.toLowerCase().contains(q) ?? false)) {
-          resultados.add(_Resultado(
-            tipo: 'nota',
-            titulo: n.pacienteNombre ?? n.pacienteId,
-            subtitulo: n.contenido.length > 80
-                ? '${n.contenido.substring(0, 80)}…'
-                : n.contenido,
-            metadato: n.tipo.label,
-            objeto: n,
-          ));
+          resultados.add(
+            _Resultado(
+              tipo: 'nota',
+              titulo: n.pacienteNombre ?? n.pacienteId,
+              subtitulo: n.contenido.length > 80
+                  ? '${n.contenido.substring(0, 80)}...'
+                  : n.contenido,
+              metadato: n.tipo.label,
+              objeto: n,
+            ),
+          );
+        }
+      }
+    }
+
+    if (_filtro == 'todo' || _filtro == 'recordatorios') {
+      for (final r in recordatorios) {
+        final texto =
+            '${r.titulo} ${r.descripcion ?? ""} ${r.creadoPorNombre ?? ""} '
+                    '${r.asignadoANombre ?? ""} ${r.categoria.label} ${r.prioridadLabel}'
+                .toLowerCase();
+        if (texto.contains(q)) {
+          resultados.add(
+            _Resultado(
+              tipo: 'recordatorio',
+              titulo: r.titulo,
+              subtitulo: r.descripcion?.trim().isNotEmpty == true
+                  ? r.descripcion!
+                  : (r.asignadoANombre != null
+                      ? 'Asignado a ${r.asignadoANombre}'
+                      : 'Recordatorio general'),
+              metadato: r.resuelto ? 'Resuelto' : r.prioridadLabel,
+              objeto: r,
+            ),
+          );
+        }
+      }
+    }
+
+    if (_filtro == 'todo' || _filtro == 'evaluaciones') {
+      for (final e in evaluaciones) {
+        final texto = '${e.pacienteNombre ?? e.pacienteId} ${e.escalaEnum.nombre} '
+                '${e.interpretacion ?? ""} ${e.observaciones ?? ""} ${e.nivelSeveridad}'
+            .toLowerCase();
+        if (texto.contains(q)) {
+          resultados.add(
+            _Resultado(
+              tipo: 'evaluacion',
+              titulo: e.pacienteNombre ?? e.pacienteId,
+              subtitulo:
+                  '${e.escalaEnum.nombre} · Puntaje ${e.puntuacionTotal}',
+              metadato: DateFormat('dd/MM/yy').format(e.fechaCreacion),
+              objeto: e,
+            ),
+          );
         }
       }
     }
@@ -135,20 +242,61 @@ class _BusquedaGlobalScreenState extends ConsumerState<BusquedaGlobalScreen> {
 
   void _abrir(_Resultado r) {
     if (r.objeto is Paciente) {
-      Navigator.push(context, MaterialPageRoute(
-          builder: (_) => PacienteDetalleScreen(paciente: r.objeto as Paciente)));
-    } else if (r.objeto is Cita) {
-      Navigator.push(context, MaterialPageRoute(
-          builder: (_) => CitaDetalleScreen(cita: r.objeto as Cita)));
-    } else if (r.objeto is NotaTerapia) {
-      Navigator.push(context, MaterialPageRoute(
-          builder: (_) => NotaDetalleScreen(nota: r.objeto as NotaTerapia)));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) =>
+                PacienteDetalleScreen(paciente: r.objeto as Paciente)),
+      );
+      return;
+    }
+    if (r.objeto is Cita) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => CitaDetalleScreen(cita: r.objeto as Cita)),
+      );
+      return;
+    }
+    if (r.objeto is NotaTerapia) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => NotaDetalleScreen(nota: r.objeto as NotaTerapia)),
+      );
+      return;
+    }
+    if (r.objeto is Evaluacion) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) =>
+                EvaluacionDetalleScreen(evaluacion: r.objeto as Evaluacion)),
+      );
+      return;
+    }
+    if (r.objeto is RecordatorioEx) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const RecordatoriosScreen()),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final resultados = _buscar();
+    final pacientes = ref.watch(pacientesProvider).pacientes;
+    final citasState = ref.watch(citasProvider);
+    final notas = ref.watch(notasProvider).notas;
+    final recordatorios = ref.watch(recordatoriosExProvider).recordatorios;
+    final evaluaciones = ref.watch(evaluacionesProvider).evaluaciones;
+    final resultados = _buscar(
+      pacientes: pacientes,
+      citasState: citasState,
+      notas: notas,
+      recordatorios: recordatorios,
+      evaluaciones: evaluaciones,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -157,9 +305,10 @@ class _BusquedaGlobalScreenState extends ConsumerState<BusquedaGlobalScreen> {
           controller: _ctrl,
           focusNode: _focus,
           style: const TextStyle(color: Colors.white),
-          onChanged: (v) => setState(() => _query = v),
+          onChanged: _onSearchChanged,
           decoration: InputDecoration(
-            hintText: 'Buscar pacientes, citas, notas...',
+            hintText:
+                'Buscar pacientes, citas, notas, recordatorios, evaluaciones...',
             hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
             border: InputBorder.none,
             filled: false,
@@ -170,63 +319,81 @@ class _BusquedaGlobalScreenState extends ConsumerState<BusquedaGlobalScreen> {
             IconButton(
               icon: const Icon(Icons.clear),
               onPressed: () {
+                _debounce?.cancel();
                 _ctrl.clear();
                 setState(() => _query = '');
               },
             ),
         ],
       ),
-      body: _desktopWrap(
+      body: desktopWrap(
         context,
         Column(
-        children: [
-          // Filtros
-          Container(
-            color: Theme.of(context).cardColor,
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _FiltroChip('Todo',       'todo',      _filtro, (v) => setState(() => _filtro = v)),
-                  _FiltroChip('Pacientes',  'pacientes', _filtro, (v) => setState(() => _filtro = v)),
-                  _FiltroChip('Citas',      'citas',     _filtro, (v) => setState(() => _filtro = v)),
-                  _FiltroChip('Notas',      'notas',     _filtro, (v) => setState(() => _filtro = v)),
-                ],
+          children: [
+            Container(
+              color: Theme.of(context).cardColor,
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _FiltroChip('Todo', 'todo', _filtro,
+                        (v) => setState(() => _filtro = v)),
+                    _FiltroChip(
+                      'Pacientes',
+                      'pacientes',
+                      _filtro,
+                      (v) => setState(() => _filtro = v),
+                    ),
+                    _FiltroChip('Citas', 'citas', _filtro,
+                        (v) => setState(() => _filtro = v)),
+                    _FiltroChip('Notas', 'notas', _filtro,
+                        (v) => setState(() => _filtro = v)),
+                    _FiltroChip(
+                      'Recordatorios',
+                      'recordatorios',
+                      _filtro,
+                      (v) => setState(() => _filtro = v),
+                    ),
+                    _FiltroChip(
+                      'Evaluaciones',
+                      'evaluaciones',
+                      _filtro,
+                      (v) => setState(() => _filtro = v),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Divider(height: 1, color: AppTheme.divider),
-
-          // Resultados
-          Expanded(
-            child: _query.length < 2
-                ? _Sugerencias()
-                : resultados.isEmpty
-                    ? _SinResultados(query: _query)
-                    : ListView.separated(
-                        padding: EdgeInsets.symmetric(vertical: 8.h),
-                        itemCount: resultados.length,
-                        separatorBuilder: (_, __) =>
-                            Divider(height: 1, color: AppTheme.divider),
-                        itemBuilder: (_, i) => _ResultadoTile(
-                          resultado: resultados[i],
-                          query: _query,
-                          onTap: () => _abrir(resultados[i]),
+            const Divider(height: 1, color: AppTheme.divider),
+            Expanded(
+              child: _query.length < 2
+                  ? const _Sugerencias()
+                  : resultados.isEmpty
+                      ? _SinResultados(query: _query)
+                      : ListView.separated(
+                          padding: EdgeInsets.symmetric(vertical: 8.h),
+                          itemCount: resultados.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1, color: AppTheme.divider),
+                          itemBuilder: (_, i) => _ResultadoTile(
+                            resultado: resultados[i],
+                            query: _query,
+                            onTap: () => _abrir(resultados[i]),
+                          ),
                         ),
-                      ),
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ── WIDGETS ───────────────────────────────────────────────────────────────────
-
 class _FiltroChip extends StatelessWidget {
-  final String label, value, selected;
+  final String label;
+  final String value;
+  final String selected;
   final ValueChanged<String> onTap;
 
   const _FiltroChip(this.label, this.value, this.selected, this.onTap);
@@ -269,24 +436,43 @@ class _ResultadoTile extends StatelessWidget {
   final String query;
   final VoidCallback onTap;
 
-  const _ResultadoTile(
-      {required this.resultado, required this.query, required this.onTap});
+  const _ResultadoTile({
+    required this.resultado,
+    required this.query,
+    required this.onTap,
+  });
 
   IconData get _icon {
     switch (resultado.tipo) {
-      case 'paciente': return Iconsax.user;
-      case 'cita':     return Iconsax.calendar_2;
-      case 'nota':     return Iconsax.note;
-      default:         return Icons.search;
+      case 'paciente':
+        return Iconsax.user;
+      case 'cita':
+        return Iconsax.calendar_2;
+      case 'nota':
+        return Iconsax.note;
+      case 'recordatorio':
+        return Iconsax.notification;
+      case 'evaluacion':
+        return Iconsax.chart_1;
+      default:
+        return Icons.search;
     }
   }
 
   Color get _color {
     switch (resultado.tipo) {
-      case 'paciente': return AppTheme.primary;
-      case 'cita':     return AppTheme.secondary;
-      case 'nota':     return AppTheme.warning;
-      default:         return AppTheme.textGrey;
+      case 'paciente':
+        return AppTheme.primary;
+      case 'cita':
+        return AppTheme.secondary;
+      case 'nota':
+        return AppTheme.warning;
+      case 'recordatorio':
+        return AppTheme.accent;
+      case 'evaluacion':
+        return const Color(0xFF7C3AED);
+      default:
+        return AppTheme.textGrey;
     }
   }
 
@@ -307,16 +493,17 @@ class _ResultadoTile extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _TextoResaltado(resultado.subtitulo, query,
-              style: GoogleFonts.inter(
-                  fontSize: 12.sp, color: AppTheme.textGrey),
-              maxLines: 2),
+          _TextoResaltado(
+            resultado.subtitulo,
+            query,
+            style: GoogleFonts.inter(fontSize: 12.sp, color: AppTheme.textGrey),
+            maxLines: 2,
+          ),
         ],
       ),
       trailing: resultado.metadato != null
           ? Container(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
               decoration: BoxDecoration(
                 color: _color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6.r),
@@ -334,28 +521,30 @@ class _ResultadoTile extends StatelessWidget {
   }
 }
 
-// Resalta en negrita la parte que coincide con el query
 class _TextoResaltado extends StatelessWidget {
   final String texto;
   final String query;
   final TextStyle? style;
   final int? maxLines;
 
-  const _TextoResaltado(this.texto, this.query,
-      {this.style, this.maxLines});
+  const _TextoResaltado(
+    this.texto,
+    this.query, {
+    this.style,
+    this.maxLines,
+  });
 
   @override
   Widget build(BuildContext context) {
     final base = style ??
-        GoogleFonts.inter(
-            fontSize: 14.sp, fontWeight: FontWeight.w500);
+        GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w500);
     final q = query.toLowerCase();
     final t = texto.toLowerCase();
     final idx = t.indexOf(q);
 
     if (idx == -1 || q.isEmpty) {
-      return Text(texto, style: base, maxLines: maxLines,
-          overflow: TextOverflow.ellipsis);
+      return Text(texto,
+          style: base, maxLines: maxLines, overflow: TextOverflow.ellipsis);
     }
 
     return RichText(
@@ -368,10 +557,10 @@ class _TextoResaltado extends StatelessWidget {
           TextSpan(
             text: texto.substring(idx, idx + q.length),
             style: base.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primary,
-                backgroundColor:
-                    AppTheme.primary.withValues(alpha: 0.1)),
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primary,
+              backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
+            ),
           ),
           TextSpan(text: texto.substring(idx + q.length)),
         ],
@@ -381,25 +570,31 @@ class _TextoResaltado extends StatelessWidget {
 }
 
 class _Sugerencias extends StatelessWidget {
+  const _Sugerencias();
+
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search, size: 64.sp,
-                color: AppTheme.textGrey.withValues(alpha: 0.3)),
-            SizedBox(height: 12.h),
-            Text('Escribe al menos 2 caracteres',
-                style: GoogleFonts.inter(
-                    fontSize: 15.sp, color: AppTheme.textGrey)),
-            SizedBox(height: 4.h),
-            Text('Busca por nombre, email, documento o contenido',
-                style: GoogleFonts.inter(
-                    fontSize: 12.sp, color: AppTheme.textGrey),
-                textAlign: TextAlign.center),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search,
+              size: 64.sp, color: AppTheme.textGrey.withValues(alpha: 0.3)),
+          SizedBox(height: 12.h),
+          Text(
+            'Escribe al menos 2 caracteres',
+            style: GoogleFonts.inter(fontSize: 15.sp, color: AppTheme.textGrey),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'Busca por nombre, email, documento, contenido y mas',
+            style: GoogleFonts.inter(fontSize: 12.sp, color: AppTheme.textGrey),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SinResultados extends StatelessWidget {
@@ -407,27 +602,20 @@ class _SinResultados extends StatelessWidget {
   const _SinResultados({required this.query});
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search_off, size: 64.sp,
-                color: AppTheme.textGrey.withValues(alpha: 0.3)),
-            SizedBox(height: 12.h),
-            Text('Sin resultados para "$query"',
-                style: GoogleFonts.inter(
-                    fontSize: 15.sp, color: AppTheme.textGrey)),
-          ],
-        ),
-      );
-}
-
-Widget _desktopWrap(BuildContext context, Widget child) {
-  if (!context.isDesktop) return child;
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: child,
-    ),
-  );
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off,
+              size: 64.sp, color: AppTheme.textGrey.withValues(alpha: 0.3)),
+          SizedBox(height: 12.h),
+          Text(
+            'Sin resultados para "$query"',
+            style: GoogleFonts.inter(fontSize: 15.sp, color: AppTheme.textGrey),
+          ),
+        ],
+      ),
+    );
+  }
 }

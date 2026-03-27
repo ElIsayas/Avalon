@@ -6,23 +6,24 @@ import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/paciente.dart';
-import '../providers/paciente_provider.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/layout/responsive.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../features/notas/presentation/screens/notas_screen.dart';
 import '../../../../features/notas/presentation/screens/nota_editor_screen.dart';
+import '../../../../features/notas/presentation/screens/nota_detalle_screen.dart';
 import '../../../../features/notas/presentation/providers/notas_provider.dart';
 import '../../../../features/notas/domain/nota_terapia.dart';
 import '../../../../features/citas/domain/cita.dart';
+import '../../../../features/citas/presentation/screens/cita_detalle_screen.dart';
+import '../../../../features/evaluaciones/presentation/screens/evaluaciones_screen.dart';
 import 'paciente_form.dart';
 
-// ── Provider de historia clínica ──────────────────────────────────────────────
+// â”€â”€ Provider de historia clÃ­nica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 final historiaClinicaProvider =
-    FutureProvider.family<Map<String, dynamic>, String>((ref, pacienteId) async {
+    FutureProvider.family<Map<String, dynamic>, String>(
+        (ref, pacienteId) async {
   final token = ref.read(currentUserProvider)?.sessionToken ?? '';
-  final res = await Supabase.instance.client
-      .rpc('get_historia_clinica', params: {
+  final res =
+      await Supabase.instance.client.rpc('get_historia_clinica', params: {
     'p_token': token,
     'p_paciente_id': pacienteId,
   });
@@ -39,18 +40,25 @@ class PacienteDetalleScreen extends ConsumerStatefulWidget {
       _PacienteDetalleScreenState();
 }
 
-class _PacienteDetalleScreenState
-    extends ConsumerState<PacienteDetalleScreen>
+class _PacienteDetalleScreenState extends ConsumerState<PacienteDetalleScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
+  bool _mostrarFabNotas = true;
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 4, vsync: this);
+    _mostrarFabNotas = _tabs.index == 1;
+    _tabs.addListener(() {
+      if (!_tabs.indexIsChanging) {
+        setState(() => _mostrarFabNotas = _tabs.index == 1);
+      }
+    });
     // Cargar notas del paciente
-    Future.microtask(() =>
-        ref.read(notasProvider.notifier).cargarDespaciente(widget.paciente.id));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notasProvider.notifier).cargarDePaciente(widget.paciente.id);
+    });
   }
 
   @override
@@ -61,26 +69,38 @@ class _PacienteDetalleScreenState
 
   @override
   Widget build(BuildContext context) {
-    final user           = ref.watch(currentUserProvider);
-    final puedeEditar    = user?.puedeEliminarPacientes ?? false;
-    final puedeEscribir  = user?.puedeEscribirNotas ?? false;
-    final historiaAsync  = ref.watch(historiaClinicaProvider(widget.paciente.id));
+    final user = ref.watch(currentUserProvider);
+    final puedeEditar = user?.puedeEliminarPacientes ?? false;
+    final puedeEscribir = user?.puedeEscribirNotas ?? false;
+    final historiaAsync =
+        ref.watch(historiaClinicaProvider(widget.paciente.id));
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.paciente.nombre,
-            overflow: TextOverflow.ellipsis),
+        title: Text(widget.paciente.nombre, overflow: TextOverflow.ellipsis),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.assessment_outlined),
+            tooltip: 'Evaluaciones',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => EvaluacionesScreen(
+                  pacienteIdFiltro: widget.paciente.id,
+                  pacienteNombreFiltro: widget.paciente.nombre,
+                ),
+              ),
+            ),
+          ),
           if (puedeEditar)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) =>
-                        PacienteForm(paciente: widget.paciente)),
-              ).then((_) => ref.invalidate(
-                  historiaClinicaProvider(widget.paciente.id))),
+                    builder: (_) => PacienteForm(paciente: widget.paciente)),
+              ).then((_) =>
+                  ref.invalidate(historiaClinicaProvider(widget.paciente.id))),
             ),
         ],
         bottom: TabBar(
@@ -90,10 +110,14 @@ class _PacienteDetalleScreenState
           indicatorColor: Colors.white,
           isScrollable: true,
           tabs: const [
-            Tab(text: 'Resumen',  icon: Icon(Icons.person_outline, size: 16)),
-            Tab(text: 'Notas',    icon: Icon(Icons.note_outlined, size: 16)),
-            Tab(text: 'Citas',    icon: Icon(Icons.calendar_today_outlined, size: 16)),
-            Tab(text: 'Ficha',    icon: Icon(Icons.medical_information_outlined, size: 16)),
+            Tab(text: 'Resumen', icon: Icon(Icons.person_outline, size: 16)),
+            Tab(text: 'Notas', icon: Icon(Icons.note_outlined, size: 16)),
+            Tab(
+                text: 'Citas',
+                icon: Icon(Icons.calendar_today_outlined, size: 16)),
+            Tab(
+                text: 'Ficha',
+                icon: Icon(Icons.medical_information_outlined, size: 16)),
           ],
         ),
       ),
@@ -101,8 +125,8 @@ class _PacienteDetalleScreenState
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _ErrorView(
           mensaje: e.toString(),
-          onRetry: () => ref.invalidate(
-              historiaClinicaProvider(widget.paciente.id)),
+          onRetry: () =>
+              ref.invalidate(historiaClinicaProvider(widget.paciente.id)),
         ),
         data: (historia) => TabBarView(
           controller: _tabs,
@@ -123,7 +147,7 @@ class _PacienteDetalleScreenState
           ],
         ),
       ),
-      floatingActionButton: puedeEscribir && _tabs.index == 1
+      floatingActionButton: puedeEscribir && _mostrarFabNotas
           ? FloatingActionButton(
               onPressed: () => Navigator.push(
                 context,
@@ -141,9 +165,9 @@ class _PacienteDetalleScreenState
                             pacienteNombre: widget.paciente.nombre,
                           ),
                         )),
-              ).then((_) =>
-                  ref.read(notasProvider.notifier)
-                      .cargarDespaciente(widget.paciente.id)),
+              ).then((_) => ref
+                  .read(notasProvider.notifier)
+                  .cargarDePaciente(widget.paciente.id)),
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               child: const Icon(Icons.add),
@@ -157,14 +181,15 @@ class _PacienteDetalleScreenState
     try {
       final token = ref.read(currentUserProvider)?.sessionToken ?? '';
       await Supabase.instance.client.rpc('actualizar_ficha_clinica', params: {
-        'p_token':      token,
+        'p_token': token,
         'p_paciente_id': pacienteId,
         ...ficha,
       });
       ref.invalidate(historiaClinicaProvider(pacienteId));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Ficha clínica actualizada'),
+          duration: Duration(seconds: 5),
+          content: Text('Ficha clÃ­nica actualizada'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ));
@@ -172,6 +197,7 @@ class _PacienteDetalleScreenState
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text('Error: $e'),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
@@ -181,9 +207,9 @@ class _PacienteDetalleScreenState
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TAB RESUMEN
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _ResumenTab extends StatelessWidget {
   final Paciente paciente;
@@ -193,45 +219,46 @@ class _ResumenTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalNotas   = (historia['total_notas']   as num?)?.toInt()   ?? 0;
-    final resumenCitas = historia['resumen_citas']  as Map<String, dynamic>? ?? {};
-    final totalCitas   = (resumenCitas['total']     as num?)?.toInt()   ?? 0;
-    final proximaCita  = resumenCitas['proxima'];
+    final totalNotas = (historia['total_notas'] as num?)?.toInt() ?? 0;
+    final resumenCitas =
+        historia['resumen_citas'] as Map<String, dynamic>? ?? {};
+    final totalCitas = (resumenCitas['total'] as num?)?.toInt() ?? 0;
+    final proximaCita = resumenCitas['proxima'];
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar + datos básicos
+          // Avatar + datos bÃ¡sicos
           _TarjetaPerfil(paciente: paciente),
           SizedBox(height: 16.h),
 
-          // Stats rápidas
+          // Stats rÃ¡pidas
           Row(
             children: [
-              _StatMini('Citas', totalCitas.toString(),
-                  Icons.calendar_today, AppTheme.primary),
+              _StatMini('Citas', totalCitas.toString(), Icons.calendar_today,
+                  AppTheme.primary),
               SizedBox(width: 12.w),
-              _StatMini('Notas', totalNotas.toString(),
-                  Icons.note, AppTheme.warning),
+              _StatMini(
+                  'Notas', totalNotas.toString(), Icons.note, AppTheme.warning),
               SizedBox(width: 12.w),
-              _StatMini('Activo', paciente.activo ? 'Sí' : 'No',
-                  Icons.person, AppTheme.accent),
+              _StatMini('Activo', paciente.activo ? 'SÃ­' : 'No', Icons.person,
+                  AppTheme.accent),
             ],
           ),
           SizedBox(height: 16.h),
 
-          // Próxima cita
+          // PrÃ³xima cita
           if (proximaCita != null) ...[
-            _SeccionLabel('Próxima cita'),
+            const _SeccionLabel('PrÃ³xima cita'),
             _CitaResumenCard(
                 data: proximaCita as Map<String, dynamic>, esProxima: true),
             SizedBox(height: 12.h),
           ],
 
           // Datos de contacto
-          _SeccionLabel('Datos de contacto'),
+          const _SeccionLabel('Datos de contacto'),
           Card(
             child: Padding(
               padding: EdgeInsets.all(14.r),
@@ -239,18 +266,18 @@ class _ResumenTab extends StatelessWidget {
                 children: [
                   _InfoFila(Iconsax.sms, 'Email', paciente.email),
                   if (paciente.telefono != null)
-                    _InfoFila(Iconsax.call, 'Teléfono', paciente.telefono!),
+                    _InfoFila(Iconsax.call, 'TelÃ©fono', paciente.telefono!),
                   if (paciente.direccion != null)
                     _InfoFila(
-                        Iconsax.location, 'Dirección', paciente.direccion!),
+                        Iconsax.location, 'DirecciÃ³n', paciente.direccion!),
                   if (paciente.fechaNacimiento != null)
                     _InfoFila(
                         Iconsax.cake,
                         'Nacimiento',
                         DateFormat('dd/MM/yyyy')
                             .format(paciente.fechaNacimiento!)),
-                  _InfoFila(Iconsax.card, 'Documento',
-                      paciente.numeroDocumento),
+                  _InfoFila(
+                      Iconsax.card, 'Documento', paciente.numeroDocumento),
                 ],
               ),
             ),
@@ -282,9 +309,7 @@ class _TarjetaPerfil extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 20.sp,
                   fontWeight: FontWeight.bold,
-                  color: paciente.activo
-                      ? AppTheme.primary
-                      : AppTheme.textGrey,
+                  color: paciente.activo ? AppTheme.primary : AppTheme.textGrey,
                 ),
               ),
             ),
@@ -349,9 +374,9 @@ class _TarjetaPerfil extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TAB NOTAS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _NotasTab extends ConsumerWidget {
   final String pacienteId;
@@ -362,9 +387,7 @@ class _NotasTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(notasProvider);
-    final notas = state.notas
-        .where((n) => n.pacienteId == pacienteId)
-        .toList();
+    final notas = state.notas.where((n) => n.pacienteId == pacienteId).toList();
 
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -374,12 +397,12 @@ class _NotasTab extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Iconsax.note, size: 64.sp,
-                color: AppTheme.textGrey.withValues(alpha: 0.3)),
+            Icon(Iconsax.note,
+                size: 64.sp, color: AppTheme.textGrey.withValues(alpha: 0.3)),
             SizedBox(height: 12.h),
-            Text('Sin notas aún',
-                style:
-                    GoogleFonts.inter(fontSize: 16.sp, color: AppTheme.textGrey)),
+            Text('Sin notas aÃºn',
+                style: GoogleFonts.inter(
+                    fontSize: 16.sp, color: AppTheme.textGrey)),
           ],
         ),
       );
@@ -429,6 +452,12 @@ class _NotasTab extends ConsumerWidget {
                 ),
               ],
             ),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => NotaDetalleScreen(nota: n),
+              ),
+            ),
             trailing: n.firmada
                 ? Icon(Icons.verified, color: AppTheme.accent, size: 16.sp)
                 : null,
@@ -439,9 +468,9 @@ class _NotasTab extends ConsumerWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TAB CITAS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _CitasTab extends StatelessWidget {
   final Map<String, dynamic> historia;
@@ -457,8 +486,8 @@ class _CitasTab extends StatelessWidget {
     if (citas.isEmpty) {
       return Center(
         child: Text('Sin citas registradas',
-            style: GoogleFonts.inter(
-                fontSize: 16.sp, color: AppTheme.textGrey)),
+            style:
+                GoogleFonts.inter(fontSize: 16.sp, color: AppTheme.textGrey)),
       );
     }
 
@@ -477,101 +506,122 @@ class _CitaHistorialCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fecha  = DateTime.tryParse(data['fecha_hora'].toString());
+    final fecha = DateTime.tryParse(data['fecha_hora'].toString());
     final estado = data['estado']?.toString() ?? 'agendada';
 
     final Color estadoColor;
     switch (estado) {
-      case 'completada':  estadoColor = AppTheme.primary;   break;
-      case 'confirmada':  estadoColor = AppTheme.accent;    break;
-      case 'cancelada':   estadoColor = AppTheme.error;     break;
-      case 'no_asistio':  estadoColor = AppTheme.error;     break;
-      default:            estadoColor = AppTheme.warning;
+      case 'completada':
+        estadoColor = AppTheme.primary;
+        break;
+      case 'confirmada':
+        estadoColor = AppTheme.accent;
+        break;
+      case 'cancelada':
+        estadoColor = AppTheme.error;
+        break;
+      case 'no_asistio':
+        estadoColor = AppTheme.error;
+        break;
+      default:
+        estadoColor = AppTheme.warning;
     }
 
     return Card(
       margin: EdgeInsets.only(bottom: 10.h),
-      child: Padding(
-        padding: EdgeInsets.all(14.r),
-        child: Row(
-          children: [
-            Container(
-              width: 48.w,
-              height: 48.h,
-              decoration: BoxDecoration(
-                color: estadoColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10.r),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12.r),
+        onTap: () {
+          try {
+            final cita = Cita.fromJson(data);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => CitaDetalleScreen(cita: cita)),
+            );
+          } catch (_) {}
+        },
+        child: Padding(
+          padding: EdgeInsets.all(14.r),
+          child: Row(
+            children: [
+              Container(
+                width: 48.w,
+                height: 48.h,
+                decoration: BoxDecoration(
+                  color: estadoColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: fecha != null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(DateFormat('dd').format(fecha),
+                              style: GoogleFonts.inter(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: estadoColor)),
+                          Text(
+                              DateFormat('MMM', 'es')
+                                  .format(fecha)
+                                  .toUpperCase(),
+                              style: GoogleFonts.inter(
+                                  fontSize: 9.sp, color: estadoColor)),
+                        ],
+                      )
+                    : Icon(Icons.calendar_today,
+                        color: estadoColor, size: 20.sp),
               ),
-              child: fecha != null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(DateFormat('dd').format(fecha),
-                            style: GoogleFonts.inter(
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.bold,
-                                color: estadoColor)),
-                        Text(
-                            DateFormat('MMM', 'es')
-                                .format(fecha)
-                                .toUpperCase(),
-                            style: GoogleFonts.inter(
-                                fontSize: 9.sp, color: estadoColor)),
-                      ],
-                    )
-                  : Icon(Icons.calendar_today,
-                      color: estadoColor, size: 20.sp),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    data['tipo_sesion']?.toString() ?? 'Sesión',
-                    style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600, fontSize: 13.sp),
-                  ),
-                  if (fecha != null)
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      DateFormat('HH:mm').format(fecha),
+                      data['tipo_sesion']?.toString() ?? 'SesiÃ³n',
                       style: GoogleFonts.inter(
-                          fontSize: 12.sp, color: AppTheme.textGrey),
+                          fontWeight: FontWeight.w600, fontSize: 13.sp),
                     ),
-                  if (data['psicologo_nombre'] != null)
-                    Text(
-                      data['psicologo_nombre'].toString(),
-                      style: GoogleFonts.inter(
-                          fontSize: 11.sp, color: AppTheme.textGrey),
-                    ),
-                ],
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-              decoration: BoxDecoration(
-                color: estadoColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-              child: Text(
-                estado.replaceAll('_', ' '),
-                style: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w600,
-                  color: estadoColor,
+                    if (fecha != null)
+                      Text(
+                        DateFormat('HH:mm').format(fecha),
+                        style: GoogleFonts.inter(
+                            fontSize: 12.sp, color: AppTheme.textGrey),
+                      ),
+                    if (data['psicologo_nombre'] != null)
+                      Text(
+                        data['psicologo_nombre'].toString(),
+                        style: GoogleFonts.inter(
+                            fontSize: 11.sp, color: AppTheme.textGrey),
+                      ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                decoration: BoxDecoration(
+                  color: estadoColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  estado.replaceAll('_', ' '),
+                  style: GoogleFonts.inter(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w600,
+                    color: estadoColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB FICHA CLÍNICA
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// TAB FICHA CLÃNICA
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _FichaTab extends StatefulWidget {
   final Paciente paciente;
@@ -602,20 +652,31 @@ class _FichaTabState extends State<_FichaTab> {
   @override
   void initState() {
     super.initState();
-    // El RPC get_historia_clinica devuelve los campos clínicos dentro de 'paciente'
+    // El RPC get_historia_clinica devuelve los campos clÃ­nicos dentro de 'paciente'
     final ficha = (widget.historia['paciente'] as Map<String, dynamic>?) ?? {};
-    _motivoCtrl      = TextEditingController(text: ficha['motivo_consulta_inicial']?.toString() ?? '');
-    _diagnosticoCtrl = TextEditingController(text: ficha['diagnostico_principal']?.toString() ?? '');
-    _objetivosCtrl   = TextEditingController(
-        text: ficha['objetivos_terapeuticos']?.toString() ?? widget.paciente.objetivosTerapeuticos ?? '');
-    _antecedentesCtrl = TextEditingController(text: ficha['antecedentes_personales']?.toString() ?? '');
-    _medicacionCtrl  = TextEditingController(text: ficha['medicacion_actual']?.toString() ?? '');
+    _motivoCtrl = TextEditingController(
+        text: ficha['motivo_consulta_inicial']?.toString() ?? '');
+    _diagnosticoCtrl = TextEditingController(
+        text: ficha['diagnostico_principal']?.toString() ?? '');
+    _objetivosCtrl = TextEditingController(
+        text: ficha['objetivos_terapeuticos']?.toString() ??
+            widget.paciente.objetivosTerapeuticos ??
+            '');
+    _antecedentesCtrl = TextEditingController(
+        text: ficha['antecedentes_personales']?.toString() ?? '');
+    _medicacionCtrl = TextEditingController(
+        text: ficha['medicacion_actual']?.toString() ?? '');
   }
 
   @override
   void dispose() {
-    for (final c in [_motivoCtrl, _diagnosticoCtrl, _objetivosCtrl,
-        _antecedentesCtrl, _medicacionCtrl]) {
+    for (final c in [
+      _motivoCtrl,
+      _diagnosticoCtrl,
+      _objetivosCtrl,
+      _antecedentesCtrl,
+      _medicacionCtrl
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -625,12 +686,15 @@ class _FichaTabState extends State<_FichaTab> {
     setState(() => _guardando = true);
     await widget.onActualizar({
       'p_motivo_consulta_inicial': _motivoCtrl.text.trim(),
-      'p_diagnostico_principal':   _diagnosticoCtrl.text.trim(),
-      'p_objetivos_terapeuticos':  _objetivosCtrl.text.trim(),
+      'p_diagnostico_principal': _diagnosticoCtrl.text.trim(),
+      'p_objetivos_terapeuticos': _objetivosCtrl.text.trim(),
       'p_antecedentes_personales': _antecedentesCtrl.text.trim(),
-      'p_medicacion_actual':       _medicacionCtrl.text.trim(),
+      'p_medicacion_actual': _medicacionCtrl.text.trim(),
     });
-    setState(() { _guardando = false; _editando = false; });
+    setState(() {
+      _guardando = false;
+      _editando = false;
+    });
   }
 
   @override
@@ -640,9 +704,9 @@ class _FichaTabState extends State<_FichaTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Historial médico del paciente
+          // Historial mÃ©dico del paciente
           if (widget.paciente.historialMedico != null) ...[
-            _SeccionLabel('Historial médico'),
+            const _SeccionLabel('Historial mÃ©dico'),
             Card(
               child: Padding(
                 padding: EdgeInsets.all(14.r),
@@ -655,10 +719,10 @@ class _FichaTabState extends State<_FichaTab> {
             SizedBox(height: 16.h),
           ],
 
-          // Ficha clínica editable
+          // Ficha clÃ­nica editable
           Row(
             children: [
-              Expanded(child: _SeccionLabel('Ficha clínica')),
+              const Expanded(child: _SeccionLabel('Ficha clÃ­nica')),
               if (widget.puedeEditar)
                 TextButton.icon(
                   onPressed: _editando
@@ -666,20 +730,23 @@ class _FichaTabState extends State<_FichaTab> {
                       : () => setState(() => _editando = true),
                   icon: _guardando
                       ? SizedBox(
-                          width: 14.w, height: 14.h,
-                          child: const CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(_editando ? Icons.save_outlined : Icons.edit_outlined,
+                          width: 14.w,
+                          height: 14.h,
+                          child:
+                              const CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(
+                          _editando ? Icons.save_outlined : Icons.edit_outlined,
                           size: 16.sp),
                   label: Text(_editando ? 'Guardar' : 'Editar'),
                 ),
             ],
           ),
           SizedBox(height: 8.h),
-          _CampoFicha('Motivo de consulta',    _motivoCtrl,      _editando),
-          _CampoFicha('Diagnóstico',           _diagnosticoCtrl, _editando),
-          _CampoFicha('Objetivos terapéuticos', _objetivosCtrl,  _editando),
-          _CampoFicha('Antecedentes',          _antecedentesCtrl, _editando),
-          _CampoFicha('Medicación actual',     _medicacionCtrl,  _editando),
+          _CampoFicha('Motivo de consulta', _motivoCtrl, _editando),
+          _CampoFicha('DiagnÃ³stico', _diagnosticoCtrl, _editando),
+          _CampoFicha('Objetivos terapÃ©uticos', _objetivosCtrl, _editando),
+          _CampoFicha('Antecedentes', _antecedentesCtrl, _editando),
+          _CampoFicha('MedicaciÃ³n actual', _medicacionCtrl, _editando),
           if (_editando)
             Padding(
               padding: EdgeInsets.only(top: 8.h),
@@ -728,17 +795,16 @@ class _CampoFicha extends StatelessWidget {
                             color: AppTheme.textGrey)),
                     SizedBox(height: 4.h),
                     Text(ctrl.text,
-                        style: GoogleFonts.inter(
-                            fontSize: 13.sp, height: 1.6)),
+                        style: GoogleFonts.inter(fontSize: 13.sp, height: 1.6)),
                   ],
                 ),
     );
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // WIDGETS COMUNES
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _CitaResumenCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -759,12 +825,14 @@ class _CitaResumenCard extends StatelessWidget {
         title: fecha != null
             ? Text(
                 DateFormat('EEEE d \'de\' MMMM, HH:mm', 'es').format(fecha),
-                style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w500),
+                style: GoogleFonts.inter(
+                    fontSize: 13.sp, fontWeight: FontWeight.w500),
               )
-            : const Text('—'),
+            : const Text('â€”'),
         subtitle: data['tipo_sesion'] != null
             ? Text(data['tipo_sesion'].toString(),
-                style: GoogleFonts.inter(fontSize: 12.sp, color: AppTheme.textGrey))
+                style: GoogleFonts.inter(
+                    fontSize: 12.sp, color: AppTheme.textGrey))
             : null,
       ),
     );
@@ -810,9 +878,12 @@ class _StatMini extends StatelessWidget {
             SizedBox(height: 4.h),
             Text(value,
                 style: GoogleFonts.inter(
-                    fontSize: 18.sp, fontWeight: FontWeight.bold, color: color)),
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                    color: color)),
             Text(label,
-                style: GoogleFonts.inter(fontSize: 10.sp, color: AppTheme.textGrey)),
+                style: GoogleFonts.inter(
+                    fontSize: 10.sp, color: AppTheme.textGrey)),
           ],
         ),
       ),
@@ -880,15 +951,4 @@ class _ErrorView extends StatelessWidget {
           ],
         ),
       );
-}
-
-// Helper de responsive para este screen
-Widget _desktopWrap(BuildContext context, Widget child) {
-  if (!context.isDesktop) return child;
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: child,
-    ),
-  );
 }

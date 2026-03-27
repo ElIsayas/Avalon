@@ -31,22 +31,23 @@ class Paciente {
 
   factory Paciente.fromJson(Map<String, dynamic> json) {
     return Paciente(
-      id:                    json['id'].toString(),
-      nombre:                json['nombre'].toString(),
-      email:                 json['email'].toString(),
-      numeroDocumento:       json['numero_documento'].toString(),
-      telefono:              json['telefono']?.toString(),
-      fechaNacimiento:       json['fecha_nacimiento'] != null
+      id: json['id'].toString(),
+      nombre: json['nombre'].toString(),
+      email: json['email'].toString(),
+      numeroDocumento: json['numero_documento'].toString(),
+      telefono: json['telefono']?.toString(),
+      fechaNacimiento: json['fecha_nacimiento'] != null
           ? DateTime.tryParse(json['fecha_nacimiento'].toString())
           : null,
-      direccion:             json['direccion']?.toString(),
-      historialMedico:       json['historial_medico']?.toString(),
-      activo:                json['activo'] as bool? ?? true,
-      fechaRegistro:         DateTime.tryParse(json['fecha_registro'].toString()) ?? DateTime.now(),
-      fechaActualizacion:    json['fecha_actualizacion'] != null
+      direccion: json['direccion']?.toString(),
+      historialMedico: json['historial_medico']?.toString(),
+      activo: json['activo'] as bool? ?? true,
+      fechaRegistro: DateTime.tryParse(json['fecha_registro'].toString()) ??
+          DateTime.now(),
+      fechaActualizacion: json['fecha_actualizacion'] != null
           ? DateTime.tryParse(json['fecha_actualizacion'].toString())
           : null,
-      creadoPor:             json['creado_por'].toString(),
+      creadoPor: json['creado_por'].toString(),
       objetivosTerapeuticos: json['objetivos_terapeuticos']?.toString(),
     );
   }
@@ -63,19 +64,20 @@ class Paciente {
     String? objetivosTerapeuticos,
   }) {
     return Paciente(
-      id:                    id,
-      nombre:                nombre ?? this.nombre,
-      email:                 email ?? this.email,
-      numeroDocumento:       numeroDocumento ?? this.numeroDocumento,
-      telefono:              telefono ?? this.telefono,
-      fechaNacimiento:       fechaNacimiento ?? this.fechaNacimiento,
-      direccion:             direccion ?? this.direccion,
-      historialMedico:       historialMedico ?? this.historialMedico,
-      activo:                activo ?? this.activo,
-      fechaRegistro:         fechaRegistro,
-      fechaActualizacion:    DateTime.now(),
-      creadoPor:             creadoPor,
-      objetivosTerapeuticos: objetivosTerapeuticos ?? this.objetivosTerapeuticos,
+      id: id,
+      nombre: nombre ?? this.nombre,
+      email: email ?? this.email,
+      numeroDocumento: numeroDocumento ?? this.numeroDocumento,
+      telefono: telefono ?? this.telefono,
+      fechaNacimiento: fechaNacimiento ?? this.fechaNacimiento,
+      direccion: direccion ?? this.direccion,
+      historialMedico: historialMedico ?? this.historialMedico,
+      activo: activo ?? this.activo,
+      fechaRegistro: fechaRegistro,
+      fechaActualizacion: DateTime.now(),
+      creadoPor: creadoPor,
+      objetivosTerapeuticos:
+          objetivosTerapeuticos ?? this.objetivosTerapeuticos,
     );
   }
 

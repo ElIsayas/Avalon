@@ -10,9 +10,9 @@ enum TipoNota {
   final String label;
 
   static TipoNota fromString(String v) => TipoNota.values.firstWhere(
-    (e) => e.value == v,
-    orElse: () => TipoNota.sesion,
-  );
+        (e) => e.value == v,
+        orElse: () => TipoNota.sesion,
+      );
 }
 
 class NotaTerapia {
@@ -46,36 +46,43 @@ class NotaTerapia {
   });
 
   factory NotaTerapia.fromJson(Map<String, dynamic> j) => NotaTerapia(
-    id:                  j['id'].toString(),
-    pacienteId:          j['paciente_id'].toString(),
-    psicologoId:         j['psicologo_id'].toString(),
-    citaId:              j['cita_id']?.toString(),
-    contenido:           j['contenido']?.toString() ?? '',
-    tipo:                TipoNota.fromString(j['tipo']?.toString() ?? 'sesion'),
-    firmada:             j['firmada'] as bool? ?? false,
-    firmadaEn:           j['firmada_en'] != null
-        ? DateTime.tryParse(j['firmada_en'].toString()) : null,
-    fechaCreacion:       DateTime.tryParse(j['fecha_creacion'].toString()) ?? DateTime.now(),
-    fechaActualizacion:  DateTime.tryParse(j['fecha_actualizacion'].toString()) ?? DateTime.now(),
-    pacienteNombre:      j['paciente_nombre']?.toString(),
-    psicologoNombre:     j['psicologo_nombre']?.toString(),
-  );
+        id: j['id'].toString(),
+        pacienteId: j['paciente_id'].toString(),
+        psicologoId: j['psicologo_id'].toString(),
+        citaId: j['cita_id']?.toString(),
+        contenido: j['contenido']?.toString() ?? '',
+        tipo: TipoNota.fromString(j['tipo']?.toString() ?? 'sesion'),
+        firmada: j['firmada'] as bool? ?? false,
+        firmadaEn: j['firmada_en'] != null
+            ? DateTime.tryParse(j['firmada_en'].toString())
+            : null,
+        fechaCreacion:
+            DateTime.tryParse(j['fecha_creacion'].toString()) ?? DateTime.now(),
+        fechaActualizacion:
+            DateTime.tryParse(j['fecha_actualizacion'].toString()) ??
+                DateTime.now(),
+        pacienteNombre: j['paciente_nombre']?.toString(),
+        psicologoNombre: j['psicologo_nombre']?.toString(),
+      );
 
   NotaTerapia copyWith({
     String? contenido,
     TipoNota? tipo,
     bool? firmada,
     DateTime? firmadaEn,
-  }) => NotaTerapia(
-    id: id, pacienteId: pacienteId, psicologoId: psicologoId,
-    citaId: citaId,
-    contenido: contenido ?? this.contenido,
-    tipo: tipo ?? this.tipo,
-    firmada: firmada ?? this.firmada,
-    firmadaEn: firmadaEn ?? this.firmadaEn,
-    fechaCreacion: fechaCreacion,
-    fechaActualizacion: DateTime.now(),
-    pacienteNombre: pacienteNombre,
-    psicologoNombre: psicologoNombre,
-  );
+  }) =>
+      NotaTerapia(
+        id: id,
+        pacienteId: pacienteId,
+        psicologoId: psicologoId,
+        citaId: citaId,
+        contenido: contenido ?? this.contenido,
+        tipo: tipo ?? this.tipo,
+        firmada: firmada ?? this.firmada,
+        firmadaEn: firmadaEn ?? this.firmadaEn,
+        fechaCreacion: fechaCreacion,
+        fechaActualizacion: DateTime.now(),
+        pacienteNombre: pacienteNombre,
+        psicologoNombre: psicologoNombre,
+      );
 }

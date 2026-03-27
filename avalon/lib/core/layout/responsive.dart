@@ -16,9 +16,23 @@ bool isMobile(BuildContext context) => !isDesktop(context);
 
 extension ResponsiveContext on BuildContext {
   bool get isDesktop => MediaQuery.of(this).size.width >= kDesktopBreakpoint;
-  bool get isMobile  => !this.isDesktop;
-  double get screenWidth  => MediaQuery.of(this).size.width;
+  bool get isMobile => !isDesktop;
+  double get screenWidth => MediaQuery.of(this).size.width;
   double get screenHeight => MediaQuery.of(this).size.height;
+}
+
+Widget desktopWrap(
+  BuildContext context,
+  Widget child, {
+  double maxWidth = kDesktopContentMaxWidth,
+}) {
+  if (!context.isDesktop) return child;
+  return Center(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: child,
+    ),
+  );
 }
 
 class Responsive extends StatelessWidget {
@@ -26,8 +40,7 @@ class Responsive extends StatelessWidget {
   final Widget desktop;
   const Responsive({super.key, required this.mobile, required this.desktop});
   @override
-  Widget build(BuildContext context) =>
-      context.isDesktop ? desktop : mobile;
+  Widget build(BuildContext context) => context.isDesktop ? desktop : mobile;
 }
 
 class ResponsiveBody extends StatelessWidget {

@@ -12,8 +12,9 @@ class WidgetProximasCitas extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final proximasCitas = ref.watch(citasProvider.select((state) => state.proximasCitasPsicologo));
-    
+    final citasState = ref.watch(citasProvider);
+    final proximasCitas = citasState.proximasCitasPsicologo;
+
     return Card(
       child: Padding(
         padding: EdgeInsets.all(16.w),
@@ -29,7 +30,21 @@ class WidgetProximasCitas extends ConsumerWidget {
               ),
             ),
             SizedBox(height: 12.h),
-            if (proximasCitas.isEmpty)
+            if (citasState.cargando)
+              const Center(
+                  child: Padding(
+                padding: EdgeInsets.all(8),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ))
+            else if (citasState.error != null)
+              Text(
+                citasState.error!,
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  color: AppTheme.error,
+                ),
+              )
+            else if (proximasCitas.isEmpty)
               Text(
                 'No tienes próximas citas',
                 style: GoogleFonts.inter(
@@ -59,7 +74,7 @@ class _ProximaCitaItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final esHoy = cita.esHoy;
     final esManana = _esManana(cita.fechaHora);
-    
+
     return Padding(
       padding: EdgeInsets.only(bottom: 12.h),
       child: Container(
@@ -90,7 +105,9 @@ class _ProximaCitaItem extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    DateFormat('MMM', 'es').format(cita.fechaHora).toUpperCase(),
+                    DateFormat('MMM', 'es')
+                        .format(cita.fechaHora)
+                        .toUpperCase(),
                     style: GoogleFonts.inter(
                       fontSize: 8.sp,
                       fontWeight: FontWeight.w500,
@@ -118,7 +135,8 @@ class _ProximaCitaItem extends StatelessWidget {
                       SizedBox(width: 8.w),
                       if (esHoy)
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 6.w, vertical: 2.h),
                           decoration: BoxDecoration(
                             color: AppTheme.accent.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4.r),
@@ -134,7 +152,8 @@ class _ProximaCitaItem extends StatelessWidget {
                         )
                       else if (esManana)
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 6.w, vertical: 2.h),
                           decoration: BoxDecoration(
                             color: AppTheme.warning.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4.r),
@@ -178,8 +197,8 @@ class _ProximaCitaItem extends StatelessWidget {
   bool _esManana(DateTime fecha) {
     final ahora = DateTime.now();
     final manana = DateTime(ahora.year, ahora.month, ahora.day + 1);
-    return fecha.year == manana.year && 
-           fecha.month == manana.month && 
-           fecha.day == manana.day;
+    return fecha.year == manana.year &&
+        fecha.month == manana.month &&
+        fecha.day == manana.day;
   }
 }

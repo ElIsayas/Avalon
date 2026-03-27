@@ -32,6 +32,9 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/windows/
+/linux/
+/macos/
 
 # Symbolication related
 app.*.symbols
@@ -43,3 +46,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+local.properties
+android/local.properties
+android/key.properties
+*.user
+*.suo
+.env

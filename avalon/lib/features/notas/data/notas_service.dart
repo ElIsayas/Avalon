@@ -8,7 +8,6 @@ class NotasService {
 
   NotasService(this._client, this._token);
 
-  // ── Obtener notas de un paciente ──────────────────────────────────────────
   Future<List<NotaTerapia>> getNotasPaciente(String pacienteId) async {
     AppLogger.database('Obteniendo notas del paciente $pacienteId');
     try {
@@ -16,35 +15,46 @@ class NotasService {
         'p_token': _token,
         'p_paciente_id': pacienteId,
       });
-      return (res as List? ?? [])
-          .map((j) => NotaTerapia.fromJson(j as Map<String, dynamic>))
-          .toList();
+      return _normalizarLista(res).map(NotaTerapia.fromJson).toList();
     } catch (e, st) {
-      AppLogger.database('Error obteniendo notas: $e', error: e, stackTrace: st);
+      AppLogger.database('Error obteniendo notas: $e',
+          error: e, stackTrace: st);
       rethrow;
     }
   }
 
-  // ── Obtener TODAS las notas del psicologo/org (para tab Notas) ────────────
-  // Reutilizamos get_notas_paciente sin pacienteId si el RPC lo permite,
-  // o usamos get_historia_clinica para un listado general
   Future<List<NotaTerapia>> getTodasLasNotas() async {
-    AppLogger.database('Obteniendo todas las notas de la organización');
+    AppLogger.database('Obteniendo todas las notas de la organizacion');
     try {
-      // Llamada sin paciente_id — el RPC devuelve todas las de la org
       final res = await _client.rpc('get_notas_paciente', params: {
         'p_token': _token,
       });
-      return (res as List? ?? [])
-          .map((j) => NotaTerapia.fromJson(j as Map<String, dynamic>))
-          .toList();
-    } catch (e, st) {
-      AppLogger.database('Error obteniendo todas las notas: $e', error: e, stackTrace: st);
-      rethrow;
+      return _normalizarLista(res).map(NotaTerapia.fromJson).toList();
+    } catch (e1, st1) {
+      AppLogger.database(
+        'RPC get_notas_paciente sin p_paciente_id fallo. Reintentando con null: $e1',
+        error: e1,
+        stackTrace: st1,
+      );
+      try {
+        final res = await _client.rpc('get_notas_paciente', params: {
+          'p_token': _token,
+          'p_paciente_id': null,
+        });
+        return _normalizarLista(res).map(NotaTerapia.fromJson).toList();
+      } catch (e2, st2) {
+        AppLogger.database(
+          'Error obteniendo todas las notas (incluyendo fallback): $e2',
+          error: e2,
+          stackTrace: st2,
+        );
+        throw Exception(
+          'El backend no permite listar todas las notas sin paciente. Verifica RPC get_notas_paciente (p_paciente_id opcional).',
+        );
+      }
     }
   }
 
-  // ── Crear nota ────────────────────────────────────────────────────────────
   Future<NotaTerapia> crear({
     required String pacienteId,
     required String contenido,
@@ -54,17 +64,20 @@ class NotasService {
     AppLogger.database('Creando nota para paciente $pacienteId');
     try {
       final params = <String, dynamic>{
-        'p_token':       _token,
+        'p_token': _token,
         'p_paciente_id': pacienteId,
-        'p_contenido':   contenido,
-        'p_tipo':        tipo,
+        'p_contenido': contenido,
+        'p_tipo': tipo,
       };
-      if (citaId != null) params['p_cita_id'] = citaId;
+      if (citaId != null) {
+        params['p_cita_id'] = citaId;
+      }
 
       final res = await _client.rpc('crear_nota', params: params);
-      final data = res as Map<String, dynamic>? ?? (res as List?)?.first as Map<String, dynamic>?;
-      if (data == null) throw Exception('Respuesta vacía del servidor');
-      if (data.containsKey('error')) throw Exception(data['error']);
+      final data = _normalizarItem(res);
+      if (data == null) {
+        throw Exception('Respuesta vacia del servidor');
+      }
       return NotaTerapia.fromJson(data);
     } catch (e, st) {
       AppLogger.database('Error creando nota: $e', error: e, stackTrace: st);
@@ -72,7 +85,6 @@ class NotasService {
     }
   }
 
-  // ── Actualizar nota ───────────────────────────────────────────────────────
   Future<NotaTerapia> actualizar({
     required String notaId,
     String? contenido,
@@ -81,50 +93,95 @@ class NotasService {
     AppLogger.database('Actualizando nota $notaId');
     try {
       final params = <String, dynamic>{
-        'p_token':   _token,
+        'p_token': _token,
         'p_nota_id': notaId,
       };
-      if (contenido != null) params['p_contenido'] = contenido;
-      if (tipo != null)      params['p_tipo']      = tipo;
+      if (contenido != null) {
+        params['p_contenido'] = contenido;
+      }
+      if (tipo != null) {
+        params['p_tipo'] = tipo;
+      }
 
       final res = await _client.rpc('actualizar_nota', params: params);
-      final data = res as Map<String, dynamic>? ?? (res as List?)?.first as Map<String, dynamic>?;
-      if (data == null) throw Exception('Respuesta vacía del servidor');
-      if (data.containsKey('error')) throw Exception(data['error']);
+      final data = _normalizarItem(res);
+      if (data == null) {
+        throw Exception('Respuesta vacia del servidor');
+      }
       return NotaTerapia.fromJson(data);
     } catch (e, st) {
-      AppLogger.database('Error actualizando nota: $e', error: e, stackTrace: st);
+      AppLogger.database('Error actualizando nota: $e',
+          error: e, stackTrace: st);
       rethrow;
     }
   }
 
-  // ── Firmar nota ───────────────────────────────────────────────────────────
   Future<void> firmar(String notaId) async {
     AppLogger.database('Firmando nota $notaId');
     try {
       final res = await _client.rpc('firmar_nota', params: {
-        'p_token':   _token,
+        'p_token': _token,
         'p_nota_id': notaId,
       });
-      final data = res as Map<String, dynamic>?;
-      if (data != null && data.containsKey('error')) throw Exception(data['error']);
+      _normalizarLista(res, permitirVacia: true);
     } catch (e, st) {
       AppLogger.database('Error firmando nota: $e', error: e, stackTrace: st);
       rethrow;
     }
   }
 
-  // ── Eliminar nota ─────────────────────────────────────────────────────────
   Future<void> eliminar(String notaId) async {
     AppLogger.database('Eliminando nota $notaId');
     try {
       await _client.rpc('eliminar_nota', params: {
-        'p_token':   _token,
+        'p_token': _token,
         'p_nota_id': notaId,
       });
     } catch (e, st) {
       AppLogger.database('Error eliminando nota: $e', error: e, stackTrace: st);
       rethrow;
     }
+  }
+
+  List<Map<String, dynamic>> _normalizarLista(dynamic res,
+      {bool permitirVacia = false}) {
+    if (res == null) {
+      return [];
+    }
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    if (res is Map) {
+      final data = Map<String, dynamic>.from(res);
+      if (data.containsKey('error')) {
+        throw Exception(data['error']);
+      }
+      for (final key in const ['data', 'items', 'notas', 'result']) {
+        final value = data[key];
+        if (value is List) {
+          return value
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      }
+      if (data.containsKey('id')) {
+        return [data];
+      }
+      return permitirVacia ? [] : [];
+    }
+    throw Exception(
+        'Contrato RPC no soportado para notas (${res.runtimeType})');
+  }
+
+  Map<String, dynamic>? _normalizarItem(dynamic res) {
+    final lista = _normalizarLista(res);
+    if (lista.isNotEmpty) {
+      return lista.first;
+    }
+    return null;
   }
 }

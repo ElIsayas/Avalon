@@ -5,8 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../providers/superadmin_provider.dart';
 import '../../data/superadmin_service.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import 'pasarelas_tab.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/string_utils.dart';
 
 class SuperAdminScreen extends ConsumerStatefulWidget {
   const SuperAdminScreen({super.key});
@@ -22,8 +23,10 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
-    Future.microtask(() => ref.read(superAdminProvider.notifier).cargarTodo());
+    _tabs = TabController(length: 5, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(superAdminProvider.notifier).cargarTodo();
+    });
   }
 
   @override
@@ -39,6 +42,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
     ref.listen(superAdminProvider, (_, next) {
       if (next.successMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(next.successMessage!),
           backgroundColor: AppTheme.accent,
           behavior: SnackBarBehavior.floating,
@@ -47,6 +51,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
       }
       if (next.error != null && !next.isLoading) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(next.error!),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
@@ -59,7 +64,7 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: Row(children: [
-          Text('⚡ ', style: TextStyle(fontSize: 18.sp)),
+          Text('âš¡ ', style: TextStyle(fontSize: 18.sp)),
           Text('Consola Superadmin',
               style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         ]),
@@ -68,8 +73,12 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
             icon: const Icon(Icons.refresh),
             onPressed: () {
               ref.read(superAdminProvider.notifier).cargarTodo();
-              if (_tabs.index == 1) ref.read(superAdminProvider.notifier).cargarUsuarios();
-              if (_tabs.index == 2) ref.read(superAdminProvider.notifier).cargarPagos();
+              if (_tabs.index == 2) {
+                ref.read(superAdminProvider.notifier).cargarUsuarios();
+              }
+              if (_tabs.index == 3) {
+                ref.read(superAdminProvider.notifier).cargarPagos();
+              }
             },
           ),
         ],
@@ -78,20 +87,31 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
-          labelStyle: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600),
+          labelStyle:
+              GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600),
           tabs: const [
-            Tab(icon: Icon(Icons.dashboard_outlined, size: 18), text: 'Métricas'),
+            Tab(
+                icon: Icon(Icons.dashboard_outlined, size: 18),
+                text: 'MÃ©tricas'),
             Tab(icon: Icon(Icons.business_outlined, size: 18), text: 'Orgs'),
             Tab(icon: Icon(Icons.people_outline, size: 18), text: 'Usuarios'),
-            Tab(icon: Icon(Icons.receipt_long_outlined, size: 18), text: 'Pagos'),
+            Tab(
+                icon: Icon(Icons.receipt_long_outlined, size: 18),
+                text: 'Pagos'),
+            Tab(
+                icon: Icon(Icons.credit_card_outlined, size: 18),
+                text: 'Pasarelas'),
           ],
           onTap: (i) {
-            if (i == 1 && state.organizaciones.isEmpty)
+            if (i == 1 && state.organizaciones.isEmpty) {
               ref.read(superAdminProvider.notifier).cargarTodo();
-            if (i == 2 && state.usuarios.isEmpty)
+            }
+            if (i == 2 && state.usuarios.isEmpty) {
               ref.read(superAdminProvider.notifier).cargarUsuarios();
-            if (i == 3 && state.pagos.isEmpty)
+            }
+            if (i == 3 && state.pagos.isEmpty) {
               ref.read(superAdminProvider.notifier).cargarPagos();
+            }
           },
         ),
       ),
@@ -102,17 +122,19 @@ class _SuperAdminScreenState extends ConsumerState<SuperAdminScreen>
               children: [
                 _MetricasTab(metricas: state.metricas),
                 _OrgsTab(orgs: state.organizaciones),
-                _UsuariosTab(usuarios: state.usuarios, orgs: state.organizaciones),
+                _UsuariosTab(
+                    usuarios: state.usuarios, orgs: state.organizaciones),
                 _PagosTab(pagos: state.pagos),
+                PasarelasTab(organizaciones: state.organizaciones),
               ],
             ),
     );
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB MÉTRICAS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// TAB MÃ‰TRICAS
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _MetricasTab extends StatelessWidget {
   final SaMetricas? metricas;
@@ -120,7 +142,9 @@ class _MetricasTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (metricas == null) return const Center(child: CircularProgressIndicator());
+    if (metricas == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final m = metricas!;
     final fmt = NumberFormat('#,###', 'es_CO');
 
@@ -140,8 +164,8 @@ class _MetricasTab extends StatelessWidget {
             children: [
               _MetricCard('Organizaciones', m.totalOrgs.toString(),
                   '${m.orgsActivas} activas', Icons.business, AppTheme.primary),
-              _MetricCard('Usuarios', m.totalUsuarios.toString(),
-                  'activos', Icons.people, AppTheme.secondary),
+              _MetricCard('Usuarios', m.totalUsuarios.toString(), 'activos',
+                  Icons.people, AppTheme.secondary),
               _MetricCard('Pacientes', m.totalPacientes.toString(),
                   'registrados', Icons.person_outline, AppTheme.accent),
               _MetricCard('Pagos del mes', m.pagosMes.toString(),
@@ -154,35 +178,42 @@ class _MetricasTab extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(16.r),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 colors: [AppTheme.primary, AppTheme.secondary],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(14.r),
             ),
             child: Row(
               children: [
-                Expanded(child: Column(
+                Expanded(
+                    child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Ingresos del mes',
-                        style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.sp)),
+                        style: GoogleFonts.inter(
+                            color: Colors.white70, fontSize: 12.sp)),
                     SizedBox(height: 4.h),
                     Text('\$${fmt.format(m.ingresosMes)} COP',
                         style: GoogleFonts.inter(
-                            color: Colors.white, fontSize: 22.sp,
+                            color: Colors.white,
+                            fontSize: 22.sp,
                             fontWeight: FontWeight.bold)),
                   ],
                 )),
-                Expanded(child: Column(
+                Expanded(
+                    child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Ingresos totales',
-                        style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.sp)),
+                        style: GoogleFonts.inter(
+                            color: Colors.white70, fontSize: 12.sp)),
                     SizedBox(height: 4.h),
                     Text('\$${fmt.format(m.ingresoTotal)} COP',
                         style: GoogleFonts.inter(
-                            color: Colors.white, fontSize: 18.sp,
+                            color: Colors.white,
+                            fontSize: 18.sp,
                             fontWeight: FontWeight.w600)),
                   ],
                 )),
@@ -193,21 +224,21 @@ class _MetricasTab extends StatelessWidget {
 
           // Orgs por plan
           if (m.orgsPorPlan.isNotEmpty) ...[
-            Text('Distribución por plan',
+            Text('DistribuciÃ³n por plan',
                 style: GoogleFonts.inter(
                     fontSize: 14.sp, fontWeight: FontWeight.w600)),
             SizedBox(height: 8.h),
             ...m.orgsPorPlan.map((p) => _PlanBar(
-              plan: p['plan']?.toString() ?? '',
-              cantidad: (p['cantidad'] as num?)?.toInt() ?? 0,
-              total: m.totalOrgs,
-            )),
+                  plan: p['plan']?.toString() ?? '',
+                  cantidad: (p['cantidad'] as num?)?.toInt() ?? 0,
+                  total: m.totalOrgs,
+                )),
             SizedBox(height: 16.h),
           ],
 
-          // Últimos pagos
+          // Ãšltimos pagos
           if (m.ultimosPagos.isNotEmpty) ...[
-            Text('Últimos pagos',
+            Text('Ãšltimos pagos',
                 style: GoogleFonts.inter(
                     fontSize: 14.sp, fontWeight: FontWeight.w600)),
             SizedBox(height: 8.h),
@@ -230,9 +261,11 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(14.r),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,10 +275,12 @@ class _MetricCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: GoogleFonts.inter(
-                  fontSize: 24.sp, fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark)),
-              Text('$label · $sub',
+              Text(value,
+                  style: GoogleFonts.inter(
+                      fontSize: 24.sp,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textDark)),
+              Text('$label Â· $sub',
                   style: GoogleFonts.inter(
                       fontSize: 11.sp, color: AppTheme.textGrey)),
             ],
@@ -259,7 +294,8 @@ class _MetricCard extends StatelessWidget {
 class _PlanBar extends StatelessWidget {
   final String plan;
   final int cantidad, total;
-  const _PlanBar({required this.plan, required this.cantidad, required this.total});
+  const _PlanBar(
+      {required this.plan, required this.cantidad, required this.total});
 
   @override
   Widget build(BuildContext context) {
@@ -267,9 +303,11 @@ class _PlanBar extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: 8.h),
       child: Row(children: [
-        SizedBox(width: 80.w,
+        SizedBox(
+            width: 80.w,
             child: Text(plan, style: GoogleFonts.inter(fontSize: 12.sp))),
-        Expanded(child: ClipRRect(
+        Expanded(
+            child: ClipRRect(
           borderRadius: BorderRadius.circular(4.r),
           child: LinearProgressIndicator(
             value: pct.toDouble(),
@@ -279,8 +317,9 @@ class _PlanBar extends StatelessWidget {
           ),
         )),
         SizedBox(width: 8.w),
-        Text('$cantidad', style: GoogleFonts.inter(
-            fontSize: 12.sp, fontWeight: FontWeight.w600)),
+        Text('$cantidad',
+            style: GoogleFonts.inter(
+                fontSize: 12.sp, fontWeight: FontWeight.w600)),
       ]),
     );
   }
@@ -292,38 +331,44 @@ class _UltimoPagoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt    = NumberFormat('#,###', 'es_CO');
-    final monto  = double.tryParse(pago['monto'].toString()) ?? 0;
-    final fecha  = pago['fecha'] != null
-        ? DateFormat('dd/MM/yy').format(DateTime.parse(pago['fecha'].toString()))
-        : '—';
+    final fmt = NumberFormat('#,###', 'es_CO');
+    final monto = double.tryParse(pago['monto'].toString()) ?? 0;
+    final fecha = pago['fecha'] != null
+        ? DateFormat('dd/MM/yy')
+            .format(DateTime.parse(pago['fecha'].toString()))
+        : 'â€”';
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 5.h),
       child: Row(children: [
-        Expanded(child: Text(pago['org']?.toString() ?? '—',
-            style: GoogleFonts.inter(fontSize: 13.sp))),
+        Expanded(
+            child: Text(pago['org']?.toString() ?? 'â€”',
+                style: GoogleFonts.inter(fontSize: 13.sp))),
         Container(
           padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
           decoration: BoxDecoration(
             color: AppTheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6.r),
           ),
-          child: Text(pago['plan']?.toString() ?? '—',
-              style: GoogleFonts.inter(fontSize: 11.sp, color: AppTheme.primary)),
+          child: Text(pago['plan']?.toString() ?? 'â€”',
+              style:
+                  GoogleFonts.inter(fontSize: 11.sp, color: AppTheme.primary)),
         ),
         SizedBox(width: 8.w),
         Text('\$${fmt.format(monto)}',
-            style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+            style: GoogleFonts.inter(
+                fontSize: 12.sp, fontWeight: FontWeight.w600)),
         SizedBox(width: 8.w),
-        Text(fecha, style: GoogleFonts.inter(fontSize: 11.sp, color: AppTheme.textGrey)),
+        Text(fecha,
+            style:
+                GoogleFonts.inter(fontSize: 11.sp, color: AppTheme.textGrey)),
       ]),
     );
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TAB ORGANIZACIONES
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _OrgsTab extends ConsumerWidget {
   final List<SaOrganizacion> orgs;
@@ -341,8 +386,9 @@ class _OrgsTab extends ConsumerWidget {
         foregroundColor: Colors.white,
       ),
       body: orgs.isEmpty
-          ? Center(child: Text('No hay organizaciones',
-              style: GoogleFonts.inter(color: AppTheme.textGrey)))
+          ? Center(
+              child: Text('No hay organizaciones',
+                  style: GoogleFonts.inter(color: AppTheme.textGrey)))
           : ListView.builder(
               padding: EdgeInsets.fromLTRB(16.r, 16.r, 16.r, 80.r),
               itemCount: orgs.length,
@@ -356,19 +402,23 @@ class _OrgsTab extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Nueva organización'),
+        title: const Text('Nueva organizaciÃ³n'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Nombre'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               if (ctrl.text.trim().isEmpty) return;
               Navigator.pop(ctx);
-              await ref.read(superAdminProvider.notifier).crearOrganizacion(ctrl.text.trim());
+              await ref
+                  .read(superAdminProvider.notifier)
+                  .crearOrganizacion(ctrl.text.trim());
             },
             child: const Text('Crear'),
           ),
@@ -398,13 +448,15 @@ class _OrgCard extends ConsumerWidget {
               size: 20.sp),
         ),
         title: Row(children: [
-          Expanded(child: Text(org.nombre,
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14.sp))),
+          Expanded(
+              child: Text(org.nombre,
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600, fontSize: 14.sp))),
           _PlanBadge(org.planNombre),
         ]),
         subtitle: Text(
-          '${org.totalUsuarios} usuarios · ${org.totalPacientes} pacientes'
-          '${org.vencida ? " · ⚠️ VENCIDA" : ""}',
+          '${org.totalUsuarios} usuarios Â· ${org.totalPacientes} pacientes'
+          '${org.vencida ? " Â· âš ï¸ VENCIDA" : ""}',
           style: GoogleFonts.inter(
               fontSize: 11.sp,
               color: org.vencida ? AppTheme.error : AppTheme.textGrey),
@@ -419,8 +471,9 @@ class _OrgCard extends ConsumerWidget {
                   _InfoRow('Vence',
                       DateFormat('dd/MM/yyyy').format(org.fechaVencimiento!)),
                 if (org.maxCustom != null)
-                  _InfoRow('Límite custom', '${org.maxCustom} usuarios'),
-                _InfoRow('Ingresos totales', '\$${fmt.format(org.ingresos)} COP'),
+                  _InfoRow('LÃ­mite custom', '${org.maxCustom} usuarios'),
+                _InfoRow(
+                    'Ingresos totales', '\$${fmt.format(org.ingresos)} COP'),
                 if (org.fechaCreacion != null)
                   _InfoRow('Creada',
                       DateFormat('dd/MM/yyyy').format(org.fechaCreacion!)),
@@ -430,7 +483,8 @@ class _OrgCard extends ConsumerWidget {
                     label: org.activa ? 'Desactivar' : 'Activar',
                     icon: org.activa ? Icons.block : Icons.check_circle_outline,
                     color: org.activa ? AppTheme.error : AppTheme.accent,
-                    onTap: () => ref.read(superAdminProvider.notifier)
+                    onTap: () => ref
+                        .read(superAdminProvider.notifier)
                         .editarOrganizacion(org.id, activa: !org.activa),
                   ),
                   _ActionBtn(
@@ -439,9 +493,9 @@ class _OrgCard extends ConsumerWidget {
                     color: AppTheme.primary,
                     onTap: () => _showCambiarPlanDialog(context, ref),
                   ),
-                  if (org.planNombre == 'platinum')
+                  if (org.planNombre == 'ilimitado')
                     _ActionBtn(
-                      label: 'Límite usuarios',
+                      label: 'LÃ­mite usuarios',
                       icon: Icons.tune,
                       color: AppTheme.warning,
                       onTap: () => _showLimitePlatinumDialog(context, ref),
@@ -457,65 +511,79 @@ class _OrgCard extends ConsumerWidget {
 
   void _showCambiarPlanDialog(BuildContext context, WidgetRef ref) {
     String planSeleccionado = org.planNombre;
-    DateTime? vencimiento = org.fechaVencimiento ??
-        DateTime.now().add(const Duration(days: 30));
+    DateTime? vencimiento =
+        org.fechaVencimiento ?? DateTime.now().add(const Duration(days: 30));
     int? maxCustom = org.maxCustom;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          title: Text('Cambiar plan — ${org.nombre}'),
+          title: Text('Cambiar plan â€” ${org.nombre}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: planSeleccionado,
+                initialValue: planSeleccionado,
                 decoration: const InputDecoration(labelText: 'Plan'),
-                items: ['gratis','basico','pro','enterprise','platinum']
+                items: [
+                  'inicio',
+                  'starter',
+                  'profesional',
+                  'clinica',
+                  'corporativo',
+                  'ilimitado'
+                ]
                     .map((p) => DropdownMenuItem(value: p, child: Text(p)))
                     .toList(),
                 onChanged: (v) => setState(() => planSeleccionado = v!),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               InkWell(
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: ctx,
-                    initialDate: vencimiento ?? DateTime.now().add(const Duration(days: 30)),
+                    initialDate: vencimiento ??
+                        DateTime.now().add(const Duration(days: 30)),
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
                   );
                   if (picked != null) setState(() => vencimiento = picked);
                 },
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Fecha vencimiento'),
+                  decoration:
+                      const InputDecoration(labelText: 'Fecha vencimiento'),
                   child: Text(vencimiento != null
                       ? DateFormat('dd/MM/yyyy').format(vencimiento!)
                       : 'Sin vencimiento'),
                 ),
               ),
-              if (planSeleccionado == 'platinum') ...[
-                SizedBox(height: 12),
+              if (planSeleccionado == 'ilimitado') ...[
+                const SizedBox(height: 12),
                 TextFormField(
                   initialValue: maxCustom?.toString() ?? '30',
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Límite usuarios (platinum)'),
+                  decoration: const InputDecoration(
+                      labelText: 'LÃ­mite usuarios (ilimitado)'),
                   onChanged: (v) => maxCustom = int.tryParse(v),
                 ),
               ],
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(ctx);
                 await ref.read(superAdminProvider.notifier).cambiarPlan(
-                  org.id, planSeleccionado,
-                  vencimiento: vencimiento,
-                  maxCustom: planSeleccionado == 'platinum' ? maxCustom : null,
-                );
+                      org.id,
+                      planSeleccionado,
+                      vencimiento: vencimiento,
+                      maxCustom:
+                          planSeleccionado == 'ilimitado' ? maxCustom : null,
+                    );
               },
               child: const Text('Guardar'),
             ),
@@ -530,21 +598,25 @@ class _OrgCard extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ajustar límite Platinum'),
+        title: const Text('Ajustar lÃ­mite Ilimitado'),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-              labelText: 'Máximo de usuarios normales'),
+          decoration:
+              const InputDecoration(labelText: 'MÃ¡ximo de usuarios normales'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               final n = int.tryParse(ctrl.text.trim());
               if (n == null || n < 1) return;
               Navigator.pop(ctx);
-              await ref.read(superAdminProvider.notifier).ajustarLimitePlatinum(org.id, n);
+              await ref
+                  .read(superAdminProvider.notifier)
+                  .ajustarLimitePlatinum(org.id, n);
             },
             child: const Text('Guardar'),
           ),
@@ -554,9 +626,9 @@ class _OrgCard extends ConsumerWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TAB USUARIOS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _UsuariosTab extends ConsumerStatefulWidget {
   final List<SaUsuario> usuarios;
@@ -573,15 +645,18 @@ class _UsuariosTabState extends ConsumerState<_UsuariosTab> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() =>
-        ref.read(superAdminProvider.notifier).cargarUsuarios());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(superAdminProvider.notifier).cargarUsuarios();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final usuarios = _filtroOrgId == null
         ? widget.usuarios
-        : widget.usuarios.where((u) => u.organizacionId == _filtroOrgId).toList();
+        : widget.usuarios
+            .where((u) => u.organizacionId == _filtroOrgId)
+            .toList();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -598,16 +673,19 @@ class _UsuariosTabState extends ConsumerState<_UsuariosTab> {
           Padding(
             padding: EdgeInsets.fromLTRB(16.r, 12.r, 16.r, 0),
             child: DropdownButtonFormField<String?>(
-              value: _filtroOrgId,
+              initialValue: _filtroOrgId,
               decoration: InputDecoration(
-                labelText: 'Filtrar por organización',
+                labelText: 'Filtrar por organizaciÃ³n',
                 prefixIcon: const Icon(Icons.filter_list),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r)),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
               ),
               items: [
                 const DropdownMenuItem(value: null, child: Text('Todas')),
-                ...widget.orgs.map((o) => DropdownMenuItem(value: o.id, child: Text(o.nombre))),
+                ...widget.orgs.map((o) =>
+                    DropdownMenuItem(value: o.id, child: Text(o.nombre))),
               ],
               onChanged: (v) {
                 setState(() => _filtroOrgId = v);
@@ -618,8 +696,9 @@ class _UsuariosTabState extends ConsumerState<_UsuariosTab> {
           SizedBox(height: 8.h),
           Expanded(
             child: usuarios.isEmpty
-                ? Center(child: Text('No hay usuarios',
-                    style: GoogleFonts.inter(color: AppTheme.textGrey)))
+                ? Center(
+                    child: Text('No hay usuarios',
+                        style: GoogleFonts.inter(color: AppTheme.textGrey)))
                 : ListView.builder(
                     padding: EdgeInsets.fromLTRB(16.r, 4.r, 16.r, 80.r),
                     itemCount: usuarios.length,
@@ -633,10 +712,11 @@ class _UsuariosTabState extends ConsumerState<_UsuariosTab> {
 
   void _showCrearUsuarioDialog(BuildContext context) {
     final nombreCtrl = TextEditingController();
-    final emailCtrl  = TextEditingController();
-    final passCtrl   = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
     String rol = 'psicologo';
-    String? orgId = _filtroOrgId ?? (widget.orgs.isNotEmpty ? widget.orgs.first.id : null);
+    String? orgId =
+        _filtroOrgId ?? (widget.orgs.isNotEmpty ? widget.orgs.first.id : null);
 
     showDialog(
       context: context,
@@ -646,44 +726,59 @@ class _UsuariosTabState extends ConsumerState<_UsuariosTab> {
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               DropdownButtonFormField<String>(
-                value: orgId,
-                decoration: const InputDecoration(labelText: 'Organización'),
-                items: widget.orgs.map((o) =>
-                    DropdownMenuItem<String>(value: o.id, child: Text(o.nombre))).toList(),
+                initialValue: orgId,
+                decoration: const InputDecoration(labelText: 'OrganizaciÃ³n'),
+                items: widget.orgs
+                    .map((o) => DropdownMenuItem<String>(
+                        value: o.id, child: Text(o.nombre)))
+                    .toList(),
                 onChanged: (v) => setState(() => orgId = v),
               ),
-              SizedBox(height: 10),
-              TextField(controller: nombreCtrl,
+              const SizedBox(height: 10),
+              TextField(
+                  controller: nombreCtrl,
                   decoration: const InputDecoration(labelText: 'Nombre')),
-              SizedBox(height: 10),
-              TextField(controller: emailCtrl,
+              const SizedBox(height: 10),
+              TextField(
+                  controller: emailCtrl,
                   decoration: const InputDecoration(labelText: 'Email'),
                   keyboardType: TextInputType.emailAddress),
-              SizedBox(height: 10),
-              TextField(controller: passCtrl,
-                  decoration: const InputDecoration(labelText: 'Contraseña'),
+              const SizedBox(height: 10),
+              TextField(
+                  controller: passCtrl,
+                  decoration: const InputDecoration(labelText: 'ContraseÃ±a'),
                   obscureText: true),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: rol,
+                initialValue: rol,
                 decoration: const InputDecoration(labelText: 'Rol'),
-                items: ['admin','psicologo','secretaria','superadmin']
-                    .map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                items: ['admin', 'psicologo', 'secretaria', 'superadmin']
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
                 onChanged: (v) => setState(() => rol = v!),
               ),
             ]),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (orgId == null || nombreCtrl.text.trim().isEmpty ||
-                    emailCtrl.text.trim().isEmpty || passCtrl.text.isEmpty) return;
+                if (orgId == null ||
+                    nombreCtrl.text.trim().isEmpty ||
+                    emailCtrl.text.trim().isEmpty ||
+                    passCtrl.text.isEmpty) {
+                  return;
+                }
                 Navigator.pop(ctx);
                 await ref.read(superAdminProvider.notifier).crearUsuario(
-                  orgId: orgId!, nombre: nombreCtrl.text.trim(),
-                  email: emailCtrl.text.trim(), password: passCtrl.text, rol: rol,
-                );
+                      orgId: orgId!,
+                      nombre: nombreCtrl.text.trim(),
+                      email: emailCtrl.text.trim(),
+                      password: passCtrl.text,
+                      rol: rol,
+                    );
               },
               child: const Text('Crear'),
             ),
@@ -707,43 +802,55 @@ class _UsuarioCard extends ConsumerWidget {
           backgroundColor: usuario.activa
               ? AppTheme.primary.withValues(alpha: 0.1)
               : AppTheme.textGrey.withValues(alpha: 0.1),
-          child: Text(_iniciales(usuario.nombre),
+          child: Text(usuario.nombre.iniciales,
               style: GoogleFonts.inter(
-                  fontWeight: FontWeight.bold, fontSize: 13.sp,
-                  color: usuario.activa ? AppTheme.primary : AppTheme.textGrey)),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.sp,
+                  color:
+                      usuario.activa ? AppTheme.primary : AppTheme.textGrey)),
         ),
         title: Row(children: [
-          Expanded(child: Text(usuario.nombre,
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13.sp))),
+          Expanded(
+              child: Text(usuario.nombre,
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600, fontSize: 13.sp))),
           _RolBadge(usuario.rol),
         ]),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(usuario.email,
-                style: GoogleFonts.inter(fontSize: 11.sp, color: AppTheme.textGrey)),
+                style: GoogleFonts.inter(
+                    fontSize: 11.sp, color: AppTheme.textGrey)),
             Text(usuario.organizacion,
-                style: GoogleFonts.inter(fontSize: 11.sp, color: AppTheme.primary)),
+                style: GoogleFonts.inter(
+                    fontSize: 11.sp, color: AppTheme.primary)),
           ],
         ),
         isThreeLine: true,
         trailing: PopupMenuButton<String>(
           onSelected: (v) async {
             if (v == 'toggle') {
-              await ref.read(superAdminProvider.notifier).editarUsuario(
-                  usuario.id, activa: !usuario.activa);
+              await ref
+                  .read(superAdminProvider.notifier)
+                  .editarUsuario(usuario.id, activa: !usuario.activa);
             } else if (v == 'editar') {
               _showEditarDialog(context, ref);
             }
           },
           itemBuilder: (_) => [
-            PopupMenuItem(value: 'editar',
-                child: ListTile(leading: const Icon(Icons.edit_outlined),
-                    title: const Text('Editar'), dense: true)),
-            PopupMenuItem(value: 'toggle',
+            const PopupMenuItem(
+                value: 'editar',
+                child: ListTile(
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('Editar'),
+                    dense: true)),
+            PopupMenuItem(
+                value: 'toggle',
                 child: ListTile(
                   leading: Icon(usuario.activa
-                      ? Icons.block : Icons.check_circle_outline),
+                      ? Icons.block
+                      : Icons.check_circle_outline),
                   title: Text(usuario.activa ? 'Desactivar' : 'Activar'),
                   dense: true,
                 )),
@@ -755,42 +862,49 @@ class _UsuarioCard extends ConsumerWidget {
 
   void _showEditarDialog(BuildContext context, WidgetRef ref) {
     final nombreCtrl = TextEditingController(text: usuario.nombre);
-    final passCtrl   = TextEditingController();
+    final passCtrl = TextEditingController();
     String rol = usuario.rol;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          title: Text('Editar — ${usuario.nombre}'),
+          title: Text('Editar â€” ${usuario.nombre}'),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: nombreCtrl,
+            TextField(
+                controller: nombreCtrl,
                 decoration: const InputDecoration(labelText: 'Nombre')),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             DropdownButtonFormField<String>(
-              value: rol,
+              initialValue: rol,
               decoration: const InputDecoration(labelText: 'Rol'),
-              items: ['admin','psicologo','secretaria','superadmin']
-                  .map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+              items: ['admin', 'psicologo', 'secretaria', 'superadmin']
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
               onChanged: (v) => setState(() => rol = v!),
             ),
-            SizedBox(height: 10),
-            TextField(controller: passCtrl,
+            const SizedBox(height: 10),
+            TextField(
+                controller: passCtrl,
                 decoration: const InputDecoration(
-                    labelText: 'Nueva contraseña (dejar vacío para no cambiar)'),
+                    labelText:
+                        'Nueva contraseÃ±a (dejar vacÃ­o para no cambiar)'),
                 obscureText: true),
           ]),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(ctx);
                 await ref.read(superAdminProvider.notifier).editarUsuario(
-                  usuario.id,
-                  nombre: nombreCtrl.text.trim(),
-                  rol: rol,
-                  nuevaPassword: passCtrl.text.isNotEmpty ? passCtrl.text : null,
-                );
+                      usuario.id,
+                      nombre: nombreCtrl.text.trim(),
+                      rol: rol,
+                      nuevaPassword:
+                          passCtrl.text.isNotEmpty ? passCtrl.text : null,
+                    );
               },
               child: const Text('Guardar'),
             ),
@@ -799,17 +913,11 @@ class _UsuarioCard extends ConsumerWidget {
       ),
     );
   }
-
-  String _iniciales(String nombre) {
-    final p = nombre.trim().split(' ');
-    if (p.length >= 2) return '${p[0][0]}${p[1][0]}'.toUpperCase();
-    return nombre.substring(0, nombre.length >= 2 ? 2 : 1).toUpperCase();
-  }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TAB PAGOS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _PagosTab extends ConsumerStatefulWidget {
   final List<SaPago> pagos;
@@ -823,15 +931,18 @@ class _PagosTabState extends ConsumerState<_PagosTab> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(superAdminProvider.notifier).cargarPagos());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(superAdminProvider.notifier).cargarPagos();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,###', 'es_CO');
     if (widget.pagos.isEmpty) {
-      return Center(child: Text('No hay pagos registrados',
-          style: GoogleFonts.inter(color: AppTheme.textGrey)));
+      return Center(
+          child: Text('No hay pagos registrados',
+              style: GoogleFonts.inter(color: AppTheme.textGrey)));
     }
     return ListView.builder(
       padding: EdgeInsets.all(16.r),
@@ -843,20 +954,25 @@ class _PagosTabState extends ConsumerState<_PagosTab> {
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: AppTheme.accent.withValues(alpha: 0.1),
-              child: Icon(Icons.credit_card, color: AppTheme.accent, size: 18.sp),
+              child:
+                  Icon(Icons.credit_card, color: AppTheme.accent, size: 18.sp),
             ),
             title: Row(children: [
-              Expanded(child: Text(p.orgNombre,
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13.sp))),
+              Expanded(
+                  child: Text(p.orgNombre,
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600, fontSize: 13.sp))),
               Text('\$${fmt.format(p.monto)}',
                   style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold, fontSize: 13.sp,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.sp,
                       color: AppTheme.accent)),
             ]),
             subtitle: Text(
-              '${p.planNombre} · ${p.pasarela} · '
-              '${p.fechaPago != null ? DateFormat('dd/MM/yy').format(p.fechaPago!) : "—"}',
-              style: GoogleFonts.inter(fontSize: 11.sp, color: AppTheme.textGrey),
+              '${p.planNombre} Â· ${p.pasarela} Â· '
+              '${p.fechaPago != null ? DateFormat('dd/MM/yy').format(p.fechaPago!) : "â€”"}',
+              style:
+                  GoogleFonts.inter(fontSize: 11.sp, color: AppTheme.textGrey),
             ),
             trailing: Container(
               padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
@@ -869,7 +985,9 @@ class _PagosTabState extends ConsumerState<_PagosTab> {
               child: Text(p.estado,
                   style: GoogleFonts.inter(
                       fontSize: 10.sp,
-                      color: p.estado == 'completado' ? AppTheme.accent : AppTheme.error)),
+                      color: p.estado == 'completado'
+                          ? AppTheme.accent
+                          : AppTheme.error)),
             ),
           ),
         );
@@ -878,9 +996,9 @@ class _PagosTabState extends ConsumerState<_PagosTab> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // WIDGETS HELPERS COMPARTIDOS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _PlanBadge extends StatelessWidget {
   final String plan;
@@ -888,11 +1006,39 @@ class _PlanBadge extends StatelessWidget {
 
   Color get color {
     switch (plan) {
-      case 'platinum':   return const Color(0xFF7C3AED);
-      case 'enterprise': return const Color(0xFF0369A1);
-      case 'pro':        return const Color(0xFF059669);
-      case 'basico':     return const Color(0xFFD97706);
-      default:           return const Color(0xFF6B7280);
+      case 'ilimitado':
+        return const Color(0xFF7C3AED);
+      case 'corporativo':
+        return const Color(0xFF0369A1);
+      case 'clinica':
+        return const Color(0xFF0891B2);
+      case 'profesional':
+        return const Color(0xFF059669);
+      case 'starter':
+        return const Color(0xFFD97706);
+      case 'inicio':
+        return const Color(0xFF6B7280);
+      default:
+        return const Color(0xFF6B7280);
+    }
+  }
+
+  String get label {
+    switch (plan) {
+      case 'inicio':
+        return 'Inicio';
+      case 'starter':
+        return 'Starter';
+      case 'profesional':
+        return 'Profesional';
+      case 'clinica':
+        return 'Clinica';
+      case 'corporativo':
+        return 'Corporativo';
+      case 'ilimitado':
+        return 'Ilimitado';
+      default:
+        return plan;
     }
   }
 
@@ -904,9 +1050,9 @@ class _PlanBadge extends StatelessWidget {
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6.r),
       ),
-      child: Text(plan,
-          style: GoogleFonts.inter(fontSize: 10.sp,
-              fontWeight: FontWeight.w600, color: color)),
+      child: Text(label,
+          style: GoogleFonts.inter(
+              fontSize: 10.sp, fontWeight: FontWeight.w600, color: color)),
     );
   }
 }
@@ -919,16 +1065,19 @@ class _RolBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = {
       'superadmin': const Color(0xFF7C3AED),
-      'admin':      const Color(0xFFD97706),
-      'psicologo':  const Color(0xFF0369A1),
+      'admin': const Color(0xFFD97706),
+      'psicologo': const Color(0xFF0369A1),
       'secretaria': const Color(0xFF059669),
     };
     final c = colors[rol] ?? const Color(0xFF6B7280);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(5.r)),
-      child: Text(rol, style: GoogleFonts.inter(fontSize: 9.sp, color: c, fontWeight: FontWeight.w600)),
+          color: c.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(5.r)),
+      child: Text(rol,
+          style: GoogleFonts.inter(
+              fontSize: 9.sp, color: c, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -942,11 +1091,14 @@ class _InfoRow extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 3.h),
       child: Row(children: [
-        SizedBox(width: 100.w,
-            child: Text(label, style: GoogleFonts.inter(
-                fontSize: 12.sp, color: AppTheme.textGrey))),
-        Text(value, style: GoogleFonts.inter(
-            fontSize: 12.sp, fontWeight: FontWeight.w500)),
+        SizedBox(
+            width: 100.w,
+            child: Text(label,
+                style: GoogleFonts.inter(
+                    fontSize: 12.sp, color: AppTheme.textGrey))),
+        Text(value,
+            style: GoogleFonts.inter(
+                fontSize: 12.sp, fontWeight: FontWeight.w500)),
       ]),
     );
   }
@@ -957,15 +1109,19 @@ class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  const _ActionBtn({required this.label, required this.icon,
-      required this.color, required this.onTap});
+  const _ActionBtn(
+      {required this.label,
+      required this.icon,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 14.sp, color: color),
-      label: Text(label, style: GoogleFonts.inter(fontSize: 12.sp, color: color)),
+      label:
+          Text(label, style: GoogleFonts.inter(fontSize: 12.sp, color: color)),
       style: OutlinedButton.styleFrom(
         side: BorderSide(color: color.withValues(alpha: 0.4)),
         padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),

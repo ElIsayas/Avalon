@@ -18,9 +18,9 @@ class NotaDetalleScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user           = ref.watch(currentUserProvider);
-    final puedeEscribir  = user?.puedeEscribirNotas ?? false;
-    final state          = ref.watch(notasProvider);
+    final user = ref.watch(currentUserProvider);
+    final puedeEscribir = user?.puedeEscribirNotas ?? false;
+    final state = ref.watch(notasProvider);
 
     // Buscar la nota actualizada en el estado (puede haberse modificado)
     final notaActual = state.notas.firstWhere(
@@ -30,11 +30,21 @@ class NotaDetalleScreen extends ConsumerWidget {
 
     Color tipoColor;
     switch (notaActual.tipo) {
-      case TipoNota.sesion:         tipoColor = AppTheme.primary;   break;
-      case TipoNota.seguimiento:    tipoColor = AppTheme.secondary;  break;
-      case TipoNota.evaluacion:     tipoColor = AppTheme.warning;    break;
-      case TipoNota.interconsulta:  tipoColor = AppTheme.accent;     break;
-      case TipoNota.administrativa: tipoColor = AppTheme.textGrey;   break;
+      case TipoNota.sesion:
+        tipoColor = AppTheme.primary;
+        break;
+      case TipoNota.seguimiento:
+        tipoColor = AppTheme.secondary;
+        break;
+      case TipoNota.evaluacion:
+        tipoColor = AppTheme.warning;
+        break;
+      case TipoNota.interconsulta:
+        tipoColor = AppTheme.accent;
+        break;
+      case TipoNota.administrativa:
+        tipoColor = AppTheme.textGrey;
+        break;
     }
 
     return Scaffold(
@@ -68,8 +78,7 @@ class NotaDetalleScreen extends ConsumerWidget {
                 const PopupMenuItem(
                   value: 'firmar',
                   child: ListTile(
-                    leading: Icon(Icons.verified_outlined,
-                        color: Colors.green),
+                    leading: Icon(Icons.verified_outlined, color: Colors.green),
                     title: Text('Firmar nota',
                         style: TextStyle(color: Colors.green)),
                     dense: true,
@@ -79,8 +88,8 @@ class NotaDetalleScreen extends ConsumerWidget {
                   value: 'eliminar',
                   child: ListTile(
                     leading: Icon(Icons.delete_outline, color: Colors.red),
-                    title: Text('Eliminar',
-                        style: TextStyle(color: Colors.red)),
+                    title:
+                        Text('Eliminar', style: TextStyle(color: Colors.red)),
                     dense: true,
                   ),
                 ),
@@ -91,138 +100,141 @@ class NotaDetalleScreen extends ConsumerWidget {
       body: ResponsiveBody(
         maxWidth: 720,
         child: SingleChildScrollView(
-        padding: EdgeInsets.all(20.r),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Cabecera ─────────────────────────────────────────────────
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-                  decoration: BoxDecoration(
-                    color: tipoColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                  child: Text(
-                    notaActual.tipo.label,
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12.sp,
-                      color: tipoColor,
-                    ),
-                  ),
-                ),
-                if (notaActual.firmada) ...[
-                  SizedBox(width: 8.w),
+          padding: EdgeInsets.all(20.r),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Cabecera ─────────────────────────────────────────────────
+              Row(
+                children: [
                   Container(
                     padding:
                         EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
                     decoration: BoxDecoration(
-                      color: AppTheme.accent.withValues(alpha: 0.1),
+                      color: tipoColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8.r),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.verified,
-                            size: 12.sp, color: AppTheme.accent),
-                        SizedBox(width: 4.w),
-                        Text('Firmada',
-                            style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              color: AppTheme.accent,
-                              fontWeight: FontWeight.w600,
-                            )),
-                      ],
+                    child: Text(
+                      notaActual.tipo.label,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.sp,
+                        color: tipoColor,
+                      ),
                     ),
                   ),
-                ],
-              ],
-            ),
-            SizedBox(height: 16.h),
-
-            // ── Metadatos ─────────────────────────────────────────────────
-            _MetaRow(
-              icon: Iconsax.user,
-              label: 'Paciente',
-              value: notaActual.pacienteNombre ?? notaActual.pacienteId,
-            ),
-            SizedBox(height: 8.h),
-            _MetaRow(
-              icon: Iconsax.calendar_2,
-              label: 'Creada',
-              value: DateFormat('dd/MM/yyyy HH:mm').format(notaActual.fechaCreacion),
-            ),
-            if (notaActual.fechaCreacion != notaActual.fechaActualizacion) ...[
-              SizedBox(height: 8.h),
-              _MetaRow(
-                icon: Iconsax.edit,
-                label: 'Modificada',
-                value: DateFormat('dd/MM/yyyy HH:mm')
-                    .format(notaActual.fechaActualizacion),
-              ),
-            ],
-            if (notaActual.firmadaEn != null) ...[
-              SizedBox(height: 8.h),
-              _MetaRow(
-                icon: Icons.verified_outlined,
-                label: 'Firmada el',
-                value: DateFormat('dd/MM/yyyy HH:mm')
-                    .format(notaActual.firmadaEn!),
-                valueColor: AppTheme.accent,
-              ),
-            ],
-            SizedBox(height: 20.h),
-
-            // ── Divider ───────────────────────────────────────────────────
-            Divider(color: AppTheme.divider),
-            SizedBox(height: 16.h),
-
-            // ── Contenido ─────────────────────────────────────────────────
-            SelectableText(
-              notaActual.contenido,
-              style: GoogleFonts.inter(
-                fontSize: 15.sp,
-                height: 1.7,
-                color: AppTheme.textDark,
-              ),
-            ),
-
-            // ── Aviso nota firmada ─────────────────────────────────────────
-            if (notaActual.firmada) ...[
-              SizedBox(height: 24.h),
-              Container(
-                padding: EdgeInsets.all(14.r),
-                decoration: BoxDecoration(
-                  color: AppTheme.accent.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(10.r),
-                  border: Border.all(
-                      color: AppTheme.accent.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.lock_outline,
-                        size: 16.sp, color: AppTheme.accent),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      child: Text(
-                        'Esta nota ha sido firmada y no puede modificarse.',
-                        style: GoogleFonts.inter(
-                          fontSize: 12.sp,
-                          color: AppTheme.accent,
-                        ),
+                  if (notaActual.firmada) ...[
+                    SizedBox(width: 8.w),
+                    Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.verified,
+                              size: 12.sp, color: AppTheme.accent),
+                          SizedBox(width: 4.w),
+                          Text('Firmada',
+                              style: GoogleFonts.inter(
+                                fontSize: 12.sp,
+                                color: AppTheme.accent,
+                                fontWeight: FontWeight.w600,
+                              )),
+                        ],
                       ),
                     ),
                   ],
+                ],
+              ),
+              SizedBox(height: 16.h),
+
+              // ── Metadatos ─────────────────────────────────────────────────
+              _MetaRow(
+                icon: Iconsax.user,
+                label: 'Paciente',
+                value: notaActual.pacienteNombre ?? notaActual.pacienteId,
+              ),
+              SizedBox(height: 8.h),
+              _MetaRow(
+                icon: Iconsax.calendar_2,
+                label: 'Creada',
+                value: DateFormat('dd/MM/yyyy HH:mm')
+                    .format(notaActual.fechaCreacion),
+              ),
+              if (notaActual.fechaCreacion !=
+                  notaActual.fechaActualizacion) ...[
+                SizedBox(height: 8.h),
+                _MetaRow(
+                  icon: Iconsax.edit,
+                  label: 'Modificada',
+                  value: DateFormat('dd/MM/yyyy HH:mm')
+                      .format(notaActual.fechaActualizacion),
+                ),
+              ],
+              if (notaActual.firmadaEn != null) ...[
+                SizedBox(height: 8.h),
+                _MetaRow(
+                  icon: Icons.verified_outlined,
+                  label: 'Firmada el',
+                  value: DateFormat('dd/MM/yyyy HH:mm')
+                      .format(notaActual.firmadaEn!),
+                  valueColor: AppTheme.accent,
+                ),
+              ],
+              SizedBox(height: 20.h),
+
+              // ── Divider ───────────────────────────────────────────────────
+              const Divider(color: AppTheme.divider),
+              SizedBox(height: 16.h),
+
+              // ── Contenido ─────────────────────────────────────────────────
+              SelectableText(
+                notaActual.contenido,
+                style: GoogleFonts.inter(
+                  fontSize: 15.sp,
+                  height: 1.7,
+                  color: AppTheme.textDark,
                 ),
               ),
-            ],
 
-            SizedBox(height: 32.h),
-          ],
+              // ── Aviso nota firmada ─────────────────────────────────────────
+              if (notaActual.firmada) ...[
+                SizedBox(height: 24.h),
+                Container(
+                  padding: EdgeInsets.all(14.r),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10.r),
+                    border: Border.all(
+                        color: AppTheme.accent.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lock_outline,
+                          size: 16.sp, color: AppTheme.accent),
+                      SizedBox(width: 10.w),
+                      Expanded(
+                        child: Text(
+                          'Esta nota ha sido firmada y no puede modificarse.',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.sp,
+                            color: AppTheme.accent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              SizedBox(height: 32.h),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -259,8 +271,7 @@ class NotaDetalleScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar nota'),
-        content: const Text(
-            'Esta acción es irreversible. ¿Eliminar la nota?'),
+        content: const Text('Esta acción es irreversible. ¿Eliminar la nota?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -301,8 +312,7 @@ class _MetaRow extends StatelessWidget {
         SizedBox(width: 8.w),
         Text(
           '$label: ',
-          style: GoogleFonts.inter(
-              fontSize: 13.sp, color: AppTheme.textGrey),
+          style: GoogleFonts.inter(fontSize: 13.sp, color: AppTheme.textGrey),
         ),
         Expanded(
           child: Text(

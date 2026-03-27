@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:iconsax/iconsax.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/evaluacion.dart';
 import '../providers/evaluaciones_provider.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/layout/responsive.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
 class EvaluacionFormScreen extends ConsumerStatefulWidget {
@@ -27,23 +26,24 @@ class EvaluacionFormScreen extends ConsumerStatefulWidget {
 
 class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
   // Paso 1: seleccionar paciente + escala
-  // Paso 2: responder ítems
+  // Paso 2: responder Ã­tems
   // Paso 3: revisar resultado y guardar
   int _paso = 0;
 
   String? _pacienteId;
   String? _pacienteNombre;
-  EscalaEvaluacion _escala   = EscalaEvaluacion.phq9;
-  List<ItemEscala> _items    = [];
-  int _itemActual            = 0;
-  final _obsCtrl             = TextEditingController();
+  EscalaEvaluacion _escala = EscalaEvaluacion.phq9;
+  List<ItemEscala> _items = [];
+  int _itemActual = 0;
+  final _obsCtrl = TextEditingController();
+  final _puntajeManualCtrl = TextEditingController();
   List<Map<String, dynamic>> _pacientes = [];
-  bool _cargandoPacientes    = true;
+  bool _cargandoPacientes = true;
 
   @override
   void initState() {
     super.initState();
-    _pacienteId     = widget.pacienteIdInicial;
+    _pacienteId = widget.pacienteIdInicial;
     _pacienteNombre = widget.pacienteNombreInicial;
     if (_pacienteId != null) _cargandoPacientes = false;
     _cargarPacientes();
@@ -53,6 +53,7 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
   @override
   void dispose() {
     _obsCtrl.dispose();
+    _puntajeManualCtrl.dispose();
     super.dispose();
   }
 
@@ -78,13 +79,27 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
     setState(() {
       _items = raw != null
           ? List<ItemEscala>.from(raw)
-          : []; // escala personalizada: sin ítems pre-definidos
+          : []; // escala personalizada: sin Ã­tems pre-definidos
       _itemActual = 0;
     });
   }
 
   int get _puntuacionTotal =>
       _items.fold(0, (s, i) => s + (i.valor >= 0 ? i.valor : 0));
+
+  bool get _esPersonalizada => _escala == EscalaEvaluacion.personalizada;
+
+  int? get _puntajeManual => int.tryParse(_puntajeManualCtrl.text.trim());
+
+  bool get _puntajeManualValido =>
+      !_esPersonalizada || ((_puntajeManual ?? 0) > 0);
+
+  int get _puntuacionTotalFinal =>
+      _esPersonalizada ? (_puntajeManual ?? 0) : _puntuacionTotal;
+
+  String get _instruccionEscala =>
+      kInstruccionesEscalas[_escala.value] ??
+      'Responda cada item segun corresponda.';
 
   bool get _todoRespondido => _items.every((i) => i.respondida);
 
@@ -96,8 +111,7 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
       _items[_itemActual] = _items[_itemActual].conValor(valor);
       // Avanzar al siguiente sin responder
       if (_itemActual < _items.length - 1) {
-        _itemActual = _items.indexWhere(
-            (i) => !i.respondida, _itemActual + 1);
+        _itemActual = _items.indexWhere((i) => !i.respondida, _itemActual + 1);
         if (_itemActual == -1) _itemActual = _items.length - 1;
       }
     });
@@ -105,24 +119,35 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
 
   Future<void> _guardar() async {
     if (_pacienteId == null) return;
+    if (_esPersonalizada && !_puntajeManualValido) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            duration: Duration(seconds: 5),
+            content: Text('Ingrese un puntaje manual mayor a 0.')),
+      );
+      return;
+    }
+
     final ev = Evaluacion(
-      id:               '',
-      pacienteId:       _pacienteId!,
-      psicologoId:      '',
-      escala:           _escala.value,
-      puntuacionTotal:  _puntuacionTotal,
-      respuestas:       {for (final e in _respuestasMap.entries) '${e.key}': e.value},
-      fechaCreacion:    DateTime.now(),
-      pacienteNombre:   _pacienteNombre,
+      id: '',
+      pacienteId: _pacienteId!,
+      psicologoId: '',
+      escala: _escala.value,
+      puntuacionTotal: _puntuacionTotalFinal,
+      respuestas: {for (final e in _respuestasMap.entries) '${e.key}': e.value},
+      fechaCreacion: DateTime.now(),
+      pacienteNombre: _pacienteNombre,
     );
 
     final ok = await ref.read(evaluacionesProvider.notifier).crear(
-          pacienteId:      _pacienteId!,
-          escala:          _escala.value,
-          puntuacionTotal: _puntuacionTotal,
-          respuestas:      _respuestasMap,
-          observaciones:   _obsCtrl.text.trim().isEmpty ? null : _obsCtrl.text.trim(),
-          interpretacion:  ev.nivelSeveridad != '—' ? ev.nivelSeveridad : null,
+          pacienteId: _pacienteId!,
+          escala: _escala.value,
+          puntuacionTotal: _puntuacionTotalFinal,
+          respuestas: _respuestasMap,
+          observaciones:
+              _obsCtrl.text.trim().isEmpty ? null : _obsCtrl.text.trim(),
+          interpretacion: ev.nivelSeveridad != 'â€”' ? ev.nivelSeveridad : null,
         );
 
     if (ok && mounted) Navigator.pop(context);
@@ -137,7 +162,8 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
             ? PreferredSize(
                 preferredSize: Size.fromHeight(6.h),
                 child: LinearProgressIndicator(
-                  value: _items.where((i) => i.respondida).length / _items.length,
+                  value:
+                      _items.where((i) => i.respondida).length / _items.length,
                   backgroundColor: Colors.white24,
                   valueColor: const AlwaysStoppedAnimation(Colors.white),
                   minHeight: 4.h,
@@ -153,14 +179,14 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
     );
   }
 
-  // ── PASO 0: Seleccionar paciente y escala ─────────────────────────────────
+  // â”€â”€ PASO 0: Seleccionar paciente y escala â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildPasoSeleccion() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(20.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Label('Paciente'),
+          const _Label('Paciente'),
           if (_pacienteId != null)
             _PacienteSeleccionado(
               nombre: _pacienteNombre ?? _pacienteId!,
@@ -175,16 +201,23 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                 : _SelectorPacienteFiltro(
                     pacientes: _pacientes,
                     onSeleccionar: (p) => setState(() {
-                      _pacienteId     = p['id'].toString();
+                      _pacienteId = p['id'].toString();
                       _pacienteNombre = p['nombre'].toString();
                     }),
                   ),
           SizedBox(height: 20.h),
-          _Label('Escala de evaluación'),
+          const _Label('Escala de evaluaciÃ³n'),
           ...EscalaEvaluacion.values.map((e) {
             final sel = _escala == e;
+            final disponible = e == EscalaEvaluacion.personalizada ||
+                (kItemsEscalas[e.value]?.isNotEmpty ?? false);
             return GestureDetector(
-              onTap: () => setState(() { _escala = e; _cargarItems(); }),
+              onTap: !disponible
+                  ? null
+                  : () {
+                      _escala = e;
+                      _cargarItems();
+                    },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 margin: EdgeInsets.only(bottom: 10.h),
@@ -192,7 +225,9 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                 decoration: BoxDecoration(
                   color: sel
                       ? AppTheme.accent.withValues(alpha: 0.08)
-                      : Theme.of(context).cardColor,
+                      : !disponible
+                          ? Theme.of(context).cardColor.withValues(alpha: 0.55)
+                          : Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(
                     color: sel ? AppTheme.accent : AppTheme.divider,
@@ -208,20 +243,31 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                             style: GoogleFonts.inter(
                                 fontSize: 14.sp,
                                 fontWeight: FontWeight.w600,
-                                color: sel ? AppTheme.accent : AppTheme.textDark)),
+                                color:
+                                    sel ? AppTheme.accent : AppTheme.textDark)),
                         SizedBox(height: 2.h),
                         Text(e.descripcion,
                             style: GoogleFonts.inter(
                                 fontSize: 12.sp, color: AppTheme.textGrey)),
                         if (e.puntuacionMax < 999)
-                          Text('Puntaje máx: ${e.puntuacionMax}',
+                          Text('Puntaje mÃ¡x: ${e.puntuacionMax}',
                               style: GoogleFonts.inter(
                                   fontSize: 11.sp, color: AppTheme.textGrey)),
+                        if (!disponible)
+                          Text(
+                            'Proximamente',
+                            style: GoogleFonts.inter(
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.warning,
+                            ),
+                          ),
                       ],
                     ),
                   ),
                   if (sel)
-                    Icon(Icons.check_circle, color: AppTheme.accent, size: 20.sp),
+                    Icon(Icons.check_circle,
+                        color: AppTheme.accent, size: 20.sp),
                 ]),
               ),
             );
@@ -231,9 +277,10 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
             width: double.infinity,
             height: 50.h,
             child: ElevatedButton(
-              onPressed: _pacienteId == null ? null : () => setState(() => _paso = 1),
+              onPressed:
+                  _pacienteId == null ? null : () => setState(() => _paso = 1),
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
-              child: const Text('Comenzar evaluación'),
+              child: const Text('Comenzar evaluaciÃ³n'),
             ),
           ),
         ],
@@ -241,33 +288,44 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
     );
   }
 
-  // ── PASO 1: Responder ítems ───────────────────────────────────────────────
+  // â”€â”€ PASO 1: Responder Ã­tems â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildPasoItems() {
     if (_items.isEmpty) {
-      // Escala personalizada: ir directo al resultado
+      // Escala sin items predefinidos (flujo de puntaje manual).
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Escala personalizada',
-                style: GoogleFonts.inter(fontSize: 16.sp)),
+            Text(_escala.nombre, style: GoogleFonts.inter(fontSize: 16.sp)),
+            SizedBox(height: 8.h),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: Text(
+                _instruccionEscala,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  color: AppTheme.textGrey,
+                ),
+              ),
+            ),
             SizedBox(height: 16.h),
             ElevatedButton(
               onPressed: () => setState(() => _paso = 2),
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
-              child: const Text('Ingresar puntaje manual'),
+              child: const Text('Continuar'),
             ),
           ],
         ),
       );
     }
 
-    final item    = _items[_itemActual];
-    final totalR  = _items.where((i) => i.respondida).length;
+    final item = _items[_itemActual];
+    final totalR = _items.where((i) => i.respondida).length;
 
     return Column(
       children: [
-        // Navegación de ítems
+        // NavegaciÃ³n de Ã­tems
         Container(
           color: Theme.of(context).cardColor,
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
@@ -291,10 +349,11 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Número de pregunta
+                // NÃºmero de pregunta
                 Row(children: [
                   Container(
-                    width: 32.w, height: 32.h,
+                    width: 32.w,
+                    height: 32.h,
                     decoration: BoxDecoration(
                       color: AppTheme.accent.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
@@ -316,7 +375,7 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
 
                 // Pregunta
                 Text(
-                  'Durante las últimas 2 semanas, ¿con qué frecuencia le ha molestado el siguiente problema?',
+                  _instruccionEscala,
                   style: GoogleFonts.inter(
                       fontSize: 12.sp, color: AppTheme.textGrey),
                 ),
@@ -340,9 +399,8 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                       margin: EdgeInsets.only(bottom: 10.h),
                       padding: EdgeInsets.all(14.r),
                       decoration: BoxDecoration(
-                        color: sel
-                            ? AppTheme.accent
-                            : Theme.of(context).cardColor,
+                        color:
+                            sel ? AppTheme.accent : Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(12.r),
                         border: Border.all(
                           color: sel ? AppTheme.accent : AppTheme.divider,
@@ -350,7 +408,8 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                       ),
                       child: Row(children: [
                         Container(
-                          width: 24.w, height: 24.h,
+                          width: 24.w,
+                          height: 24.h,
                           decoration: BoxDecoration(
                             color: sel
                                 ? Colors.white.withValues(alpha: 0.3)
@@ -362,7 +421,9 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                                 style: GoogleFonts.inter(
                                     fontSize: 12.sp,
                                     fontWeight: FontWeight.bold,
-                                    color: sel ? Colors.white : AppTheme.textGrey)),
+                                    color: sel
+                                        ? Colors.white
+                                        : AppTheme.textGrey)),
                           ),
                         ),
                         SizedBox(width: 12.w),
@@ -371,10 +432,12 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                               style: GoogleFonts.inter(
                                   fontSize: 14.sp,
                                   color: sel ? Colors.white : AppTheme.textDark,
-                                  fontWeight: sel ? FontWeight.w500 : FontWeight.w400)),
+                                  fontWeight:
+                                      sel ? FontWeight.w500 : FontWeight.w400)),
                         ),
                         if (sel)
-                          Icon(Icons.check_circle, color: Colors.white, size: 18.sp),
+                          Icon(Icons.check_circle,
+                              color: Colors.white, size: 18.sp),
                       ]),
                     ),
                   );
@@ -384,12 +447,12 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
           ),
         ),
 
-        // Barra inferior de navegación
+        // Barra inferior de navegaciÃ³n
         Container(
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            border: Border(top: BorderSide(color: AppTheme.divider)),
+            border: const Border(top: BorderSide(color: AppTheme.divider)),
           ),
           child: Row(children: [
             if (_itemActual > 0)
@@ -404,8 +467,8 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                 onPressed: () => setState(() => _paso = 2),
                 icon: const Icon(Icons.check),
                 label: const Text('Ver resultado'),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accent),
+                style:
+                    ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
               )
             else if (_itemActual < _items.length - 1)
               ElevatedButton.icon(
@@ -418,8 +481,8 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                     : null,
                 icon: const Icon(Icons.arrow_forward),
                 label: const Text('Siguiente'),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary),
+                style:
+                    ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
               ),
           ]),
         ),
@@ -427,21 +490,31 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
     );
   }
 
-  // ── PASO 2: Resultado ─────────────────────────────────────────────────────
+  // â”€â”€ PASO 2: Resultado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildPasoResultado() {
     final dummy = Evaluacion(
-      id: '', pacienteId: _pacienteId ?? '',
-      psicologoId: '', escala: _escala.value,
-      puntuacionTotal: _puntuacionTotal,
+      id: '',
+      pacienteId: _pacienteId ?? '',
+      psicologoId: '',
+      escala: _escala.value,
+      puntuacionTotal: _puntuacionTotalFinal,
       respuestas: {},
       fechaCreacion: DateTime.now(),
     );
     final severidad = dummy.nivelSeveridad;
     final Color sevColor;
     switch (severidad) {
-      case 'Mínima': case 'Leve': sevColor = AppTheme.accent;   break;
-      case 'Moderada':            sevColor = AppTheme.warning;  break;
-      default:                    sevColor = AppTheme.error;
+      case 'MÃ­nima':
+      case 'Minima':
+      case 'Leve':
+        sevColor = AppTheme.accent;
+        break;
+      case 'Moderada':
+      case 'Moderadamente severa':
+        sevColor = AppTheme.warning;
+        break;
+      default:
+        sevColor = severidad == 'â€”' ? AppTheme.textGrey : AppTheme.error;
     }
     final state = ref.watch(evaluacionesProvider);
 
@@ -453,7 +526,8 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
           SizedBox(height: 16.h),
           // Resultado circular
           Container(
-            width: 120.w, height: 120.w,
+            width: 120.w,
+            height: 120.w,
             decoration: BoxDecoration(
               color: sevColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -462,11 +536,13 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('$_puntuacionTotal',
+                Text('$_puntuacionTotalFinal',
                     style: GoogleFonts.inter(
-                        fontSize: 36.sp, fontWeight: FontWeight.bold,
+                        fontSize: 36.sp,
+                        fontWeight: FontWeight.bold,
                         color: sevColor)),
-                Text('/ ${_escala.puntuacionMax < 999 ? _escala.puntuacionMax : "—"}',
+                Text(
+                    '/ ${_escala.puntuacionMax < 999 ? _escala.puntuacionMax : "â€”"}',
                     style: GoogleFonts.inter(
                         fontSize: 14.sp, color: AppTheme.textGrey)),
               ],
@@ -478,8 +554,8 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                   fontSize: 18.sp, fontWeight: FontWeight.bold)),
           SizedBox(height: 6.h),
           Text(_escala.descripcion,
-              style: GoogleFonts.inter(
-                  fontSize: 13.sp, color: AppTheme.textGrey),
+              style:
+                  GoogleFonts.inter(fontSize: 13.sp, color: AppTheme.textGrey),
               textAlign: TextAlign.center),
           SizedBox(height: 14.h),
           Container(
@@ -501,6 +577,33 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                     fontSize: 13.sp, color: AppTheme.textGrey)),
           SizedBox(height: 20.h),
 
+          if (_esPersonalizada) ...[
+            TextField(
+              controller: _puntajeManualCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Puntaje total manual',
+                hintText: 'Ejemplo: 18',
+                prefixIcon: Icon(Icons.calculate_outlined),
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Ingrese un valor mayor a 0.',
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  color:
+                      _puntajeManualValido ? AppTheme.textGrey : AppTheme.error,
+                ),
+              ),
+            ),
+            SizedBox(height: 16.h),
+          ],
+
           // Resumen de respuestas
           if (_items.isNotEmpty) ...[
             Align(
@@ -512,16 +615,16 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
             SizedBox(height: 8.h),
             ...List.generate(_items.length, (i) {
               final item = _items[i];
-              final opcion = item.valor >= 0
-                  ? item.opciones[item.valor]
-                  : 'Sin respuesta';
+              final opcion =
+                  item.valor >= 0 ? item.opciones[item.valor] : 'Sin respuesta';
               return Padding(
                 padding: EdgeInsets.only(bottom: 6.h),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 22.w, height: 22.h,
+                      width: 22.w,
+                      height: 22.h,
                       decoration: BoxDecoration(
                         color: AppTheme.accent.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
@@ -542,7 +645,8 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
                           Text(item.pregunta,
                               style: GoogleFonts.inter(
                                   fontSize: 12.sp, color: AppTheme.textGrey)),
-                          Text('$opcion (${item.valor >= 0 ? item.valor : "—"})',
+                          Text(
+                              '$opcion (${item.valor >= 0 ? item.valor : "â€”"})',
                               style: GoogleFonts.inter(
                                   fontSize: 12.sp,
                                   fontWeight: FontWeight.w500)),
@@ -561,7 +665,7 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
             controller: _obsCtrl,
             maxLines: 3,
             decoration: const InputDecoration(
-              labelText: 'Observaciones clínicas (opcional)',
+              labelText: 'Observaciones clÃ­nicas (opcional)',
               prefixIcon: Icon(Icons.notes_outlined),
               alignLabelWithHint: true,
             ),
@@ -573,15 +677,16 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
             Expanded(
               child: OutlinedButton(
                 onPressed: () => setState(() => _paso = 1),
-                child: const Text('Revisar respuestas'),
+                child: Text(_items.isEmpty ? 'Volver' : 'Revisar respuestas'),
               ),
             ),
             SizedBox(width: 12.w),
             Expanded(
               child: ElevatedButton(
-                onPressed: state.isSaving ? null : _guardar,
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accent),
+                onPressed:
+                    state.isSaving || !_puntajeManualValido ? null : _guardar,
+                style:
+                    ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
                 child: state.isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text('Guardar'),
@@ -595,7 +700,7 @@ class _EvaluacionFormScreenState extends ConsumerState<EvaluacionFormScreen> {
   }
 }
 
-// ── Widgets auxiliares ────────────────────────────────────────────────────────
+// â”€â”€ Widgets auxiliares â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _Label extends StatelessWidget {
   final String text;
@@ -635,8 +740,8 @@ class _PacienteSeleccionado extends StatelessWidget {
           GestureDetector(
             onTap: onCambiar,
             child: Text('Cambiar',
-                style: GoogleFonts.inter(
-                    fontSize: 12.sp, color: AppTheme.accent)),
+                style:
+                    GoogleFonts.inter(fontSize: 12.sp, color: AppTheme.accent)),
           ),
         ]),
       );
@@ -719,15 +824,4 @@ class _SelectorPacienteFiltroState extends State<_SelectorPacienteFiltro> {
       ],
     );
   }
-}
-
-// Helper de responsive para este screen
-Widget _desktopWrap(BuildContext context, Widget child) {
-  if (!context.isDesktop) return child;
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: child,
-    ),
-  );
 }

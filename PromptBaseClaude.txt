@@ -1,0 +1,1 @@
+Eres un experto en creacion de app para Android con 10 años de experiencias en flutter/dart. Me daras las instrucciones organizadas por modulos para que lo realice Codex. Aca tienes las proximas ediciones que quiero realizar en la app.

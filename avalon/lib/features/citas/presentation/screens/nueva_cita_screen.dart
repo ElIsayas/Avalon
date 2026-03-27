@@ -7,14 +7,22 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/i18n/app_strings.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/layout/responsive.dart';
+import '../../../../core/utils/string_utils.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/cita.dart';
 import '../providers/citas_provider.dart';
 
 class NuevaCitaScreen extends ConsumerStatefulWidget {
-  const NuevaCitaScreen({super.key});
+  final String? psicologoIdInicial;
+  final String? psicologoNombreInicial;
+
+  const NuevaCitaScreen({
+    super.key,
+    this.psicologoIdInicial,
+    this.psicologoNombreInicial,
+  });
 
   @override
   ConsumerState<NuevaCitaScreen> createState() => _NuevaCitaScreenState();
@@ -27,12 +35,11 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
   String? _pacienteId;
   String? _pacienteNombre;
   String? _psicologoId;
-  String? _psicologoNombre;
   DateTime _fechaHora = DateTime.now().add(const Duration(hours: 1));
   int _duracionMinutos = 50;
   ModalidadCita _modalidad = ModalidadCita.presencial;
   TipoSesion _tipoSesion = TipoSesion.seguimiento;
-  String _estado = 'pendiente';
+  String _estado = 'agendada';
   final _notasCtrl = TextEditingController();
   bool _notificarSms = true;
   bool _notificarEmail = true;
@@ -45,6 +52,7 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
   List<Map<String, dynamic>> _pacientes = [];
   List<Map<String, dynamic>> _psicologos = [];
   bool _cargandoDatos = true;
+  String? _errorCargaDatos;
 
   @override
   void initState() {
@@ -61,14 +69,18 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
   Future<void> _cargarDatos() async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
+    setState(() {
+      _cargandoDatos = true;
+      _errorCargaDatos = null;
+    });
     try {
       final client = Supabase.instance.client;
       // Cargar pacientes
-      final resPacientes = await client.rpc('get_pacientes',
-          params: {'p_token': user.sessionToken});
-      // Cargar psicólogos
-      final resPsicologos = await client.rpc('get_psicologos_org',
-          params: {'p_token': user.sessionToken});
+      final resPacientes = await client
+          .rpc('get_pacientes', params: {'p_token': user.sessionToken});
+      // Cargar psicÃƒÂ³logos
+      final resPsicologos = await client
+          .rpc('get_psicologos_org', params: {'p_token': user.sessionToken});
 
       setState(() {
         _pacientes = (resPacientes as List? ?? [])
@@ -77,14 +89,24 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
         _psicologos = (resPsicologos as List? ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
+        if (widget.psicologoIdInicial != null &&
+            _psicologos
+                .any((p) => p['id']?.toString() == widget.psicologoIdInicial)) {
+          _psicologoId = widget.psicologoIdInicial;
+        }
         _cargandoDatos = false;
       });
+      _verificarConflicto();
     } catch (e) {
-      setState(() => _cargandoDatos = false);
+      setState(() {
+        _cargandoDatos = false;
+        _errorCargaDatos =
+            'No se pudieron cargar pacientes/psicÃƒÂ³logos. Reintenta.';
+      });
     }
   }
 
-  // ── Selector de paciente con búsqueda ────────────────────────────────────
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Selector de paciente con bÃƒÂºsqueda Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   Future<void> _abrirSelectorPaciente() async {
     if (_pacientes.isEmpty) return;
     final seleccionado = await showModalBottomSheet<Map<String, dynamic>>(
@@ -128,8 +150,8 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
     if (hora == null || !mounted) return;
 
     setState(() {
-      _fechaHora = DateTime(
-          fecha.year, fecha.month, fecha.day, hora.hour, hora.minute);
+      _fechaHora =
+          DateTime(fecha.year, fecha.month, fecha.day, hora.hour, hora.minute);
     });
     _verificarConflicto();
   }
@@ -137,30 +159,31 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     if (_pacienteId == null || _psicologoId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Selecciona paciente y psicólogo')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
+          content: Text(context.t.seleccionaPacientePsicologo)));
       return;
     }
     if (_conflictoMsg != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_conflictoMsg!)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5), content: Text(_conflictoMsg!)));
       return;
     }
 
     setState(() => _guardando = true);
     final error = await ref.read(citasProvider.notifier).crearCita(
-          pacienteId:      _pacienteId!,
-          psicologoId:     _psicologoId!,
-          fechaHora:       _fechaHora,
+          pacienteId: _pacienteId!,
+          psicologoId: _psicologoId!,
+          fechaHora: _fechaHora,
           duracionMinutos: _duracionMinutos,
-          estado:          _estado,
-          modalidad:       _modalidad.toDb(),
-          tipoSesion:      _tipoSesion.toDb(),
-          notas:           _notasCtrl.text.isEmpty ? null : _notasCtrl.text,
-          notificarSms:    _notificarSms,
-          notificarEmail:  _notificarEmail,
+          estado: _estado,
+          modalidad: _modalidad.toDb(),
+          tipoSesion: _tipoSesion.toDb(),
+          notas: _notasCtrl.text.isEmpty ? null : _notasCtrl.text,
+          notificarSms: _notificarSms,
+          notificarEmail: _notificarEmail,
           recordatorio24h: _recordatorio24h,
-          recordatorio1h:  _recordatorio1h,
+          recordatorio1h: _recordatorio1h,
         );
     setState(() => _guardando = false);
 
@@ -168,14 +191,15 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
     if (error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Cita agendada exitosamente'),
+          duration: const Duration(seconds: 5),
+          content: Text(context.t.citaAgendada),
           backgroundColor: AppTheme.accent,
         ),
       );
       Navigator.pop(context);
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(duration: const Duration(seconds: 5), content: Text(error)));
     }
   }
 
@@ -184,7 +208,7 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Nueva cita'),
+        title: Text(context.t.nuevaCita),
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
       ),
@@ -197,11 +221,11 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Seccion('Datos de la cita'),
+                    const _Seccion('Datos de la cita'),
                     SizedBox(height: 12.h),
 
-                    // ── Paciente ──────────────────────────────────────────
-                    _Label('Paciente *'),
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ Paciente Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                    const _Label('Paciente *'),
                     GestureDetector(
                       onTap: () => _abrirSelectorPaciente(),
                       child: Container(
@@ -214,11 +238,13 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Iconsax.people, color: AppTheme.primary, size: 20.sp),
+                            Icon(Iconsax.people,
+                                color: AppTheme.primary, size: 20.sp),
                             SizedBox(width: 10.w),
                             Expanded(
                               child: Text(
-                                _pacienteNombre ?? 'Toca para buscar paciente...',
+                                _pacienteNombre ??
+                                    'Toca para buscar paciente...',
                                 style: GoogleFonts.inter(
                                   fontSize: 14.sp,
                                   color: _pacienteNombre != null
@@ -235,31 +261,75 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                     ),
                     SizedBox(height: 12.h),
 
-                    // ── Psicólogo ─────────────────────────────────────────
-                    _Label('Psicólogo/a *'),
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ PsicÃƒÂ³logo Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                    const _Label('PsicÃƒÂ³logo/a *'),
+                    if (_errorCargaDatos != null) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: EdgeInsets.only(bottom: 8.h),
+                        padding: EdgeInsets.all(10.r),
+                        decoration: BoxDecoration(
+                          color: AppTheme.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8.r),
+                          border: Border.all(
+                              color: AppTheme.error.withValues(alpha: 0.2)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded,
+                                color: AppTheme.error, size: 16.sp),
+                            SizedBox(width: 8.w),
+                            Expanded(
+                              child: Text(
+                                _errorCargaDatos!,
+                                style: GoogleFonts.inter(
+                                    fontSize: 12.sp, color: AppTheme.error),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _cargarDatos,
+                              child: const Text('Reintentar'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     DropdownButtonFormField<String>(
-                      value: _psicologoId,
-                      decoration: _inputDeco('Seleccionar psicólogo'),
-                      items: _psicologos.map((p) => DropdownMenuItem(
-                            value: p['id'].toString(),
-                            child: Text(p['nombre'].toString(),
-                                style: GoogleFonts.inter(fontSize: 14.sp)),
-                          )).toList(),
+                      initialValue: _psicologoId,
+                      decoration: _inputDeco(
+                        _psicologos.isEmpty
+                            ? 'No hay psicÃƒÂ³logos disponibles'
+                            : 'Seleccionar psicÃƒÂ³logo',
+                      ),
+                      items: _psicologos
+                          .map((p) => DropdownMenuItem(
+                                value: p['id'].toString(),
+                                child: Text(p['nombre'].toString(),
+                                    style: GoogleFonts.inter(fontSize: 14.sp)),
+                              ))
+                          .toList(),
                       validator: (v) => v == null ? 'Requerido' : null,
+                      onTap: _psicologos.isEmpty
+                          ? () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    duration: Duration(seconds: 5),
+                                    content: Text(
+                                        'No hay psicÃƒÂ³logos disponibles, intenta recargar')),
+                              );
+                            }
+                          : null,
                       onChanged: (v) {
                         setState(() {
                           _psicologoId = v;
-                          _psicologoNombre = _psicologos
-                              .firstWhere((p) => p['id'].toString() == v)['nombre']
-                              .toString();
                         });
                         _verificarConflicto();
                       },
                     ),
                     SizedBox(height: 12.h),
 
-                    // ── Fecha y hora ──────────────────────────────────────
-                    _Label('Fecha y hora *'),
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ Fecha y hora Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                    const _Label('Fecha y hora *'),
                     GestureDetector(
                       onTap: _seleccionarFechaHora,
                       child: Container(
@@ -289,7 +359,7 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                       ),
                     ),
 
-                    // ── Advertencia de conflicto ───────────────────────────
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ Advertencia de conflicto Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
                     if (_conflictoMsg != null) ...[
                       SizedBox(height: 6.h),
                       Container(
@@ -318,16 +388,18 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                     ],
                     SizedBox(height: 12.h),
 
-                    // ── Duración ──────────────────────────────────────────
-                    _Label('Duración'),
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ DuraciÃƒÂ³n Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                    const _Label('DuraciÃƒÂ³n'),
                     DropdownButtonFormField<int>(
-                      value: _duracionMinutos,
+                      initialValue: _duracionMinutos,
                       decoration: _inputDeco(''),
-                      items: [30, 45, 50, 60, 90].map((d) => DropdownMenuItem(
-                            value: d,
-                            child: Text('$d minutos',
-                                style: GoogleFonts.inter(fontSize: 14.sp)),
-                          )).toList(),
+                      items: [30, 45, 50, 60, 90]
+                          .map((d) => DropdownMenuItem(
+                                value: d,
+                                child: Text('$d minutos',
+                                    style: GoogleFonts.inter(fontSize: 14.sp)),
+                              ))
+                          .toList(),
                       onChanged: (v) {
                         setState(() => _duracionMinutos = v ?? 50);
                         _verificarConflicto();
@@ -335,26 +407,27 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                     ),
                     SizedBox(height: 12.h),
 
-                    // ── Tipo de sesión ─────────────────────────────────────
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ Tipo de sesiÃƒÂ³n Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
                     Row(
                       children: [
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _Label('Tipo de sesión'),
+                              const _Label('Tipo de sesiÃƒÂ³n'),
                               DropdownButtonFormField<TipoSesion>(
-                                value: _tipoSesion,
+                                initialValue: _tipoSesion,
                                 decoration: _inputDeco(''),
-                                items: TipoSesion.values.map((t) =>
-                                    DropdownMenuItem(
-                                      value: t,
-                                      child: Text(t.label,
-                                          style: GoogleFonts.inter(
-                                              fontSize: 13.sp)),
-                                    )).toList(),
-                                onChanged: (v) =>
-                                    setState(() => _tipoSesion = v ?? TipoSesion.seguimiento),
+                                items: TipoSesion.values
+                                    .map((t) => DropdownMenuItem(
+                                          value: t,
+                                          child: Text(t.label,
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 13.sp)),
+                                        ))
+                                    .toList(),
+                                onChanged: (v) => setState(() =>
+                                    _tipoSesion = v ?? TipoSesion.seguimiento),
                               ),
                             ],
                           ),
@@ -364,19 +437,20 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _Label('Modalidad'),
+                              const _Label('Modalidad'),
                               DropdownButtonFormField<ModalidadCita>(
-                                value: _modalidad,
+                                initialValue: _modalidad,
                                 decoration: _inputDeco(''),
-                                items: ModalidadCita.values.map((m) =>
-                                    DropdownMenuItem(
-                                      value: m,
-                                      child: Text(m.label,
-                                          style: GoogleFonts.inter(
-                                              fontSize: 13.sp)),
-                                    )).toList(),
-                                onChanged: (v) =>
-                                    setState(() => _modalidad = v ?? ModalidadCita.presencial),
+                                items: ModalidadCita.values
+                                    .map((m) => DropdownMenuItem(
+                                          value: m,
+                                          child: Text(m.label,
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 13.sp)),
+                                        ))
+                                    .toList(),
+                                onChanged: (v) => setState(() =>
+                                    _modalidad = v ?? ModalidadCita.presencial),
                               ),
                             ],
                           ),
@@ -385,36 +459,38 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                     ),
                     SizedBox(height: 12.h),
 
-                    // ── Estado ────────────────────────────────────────────
-                    _Label('Estado inicial'),
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ Estado Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                    const _Label('Estado inicial'),
                     DropdownButtonFormField<String>(
-                      value: _estado,
+                      initialValue: _estado,
                       decoration: _inputDeco(''),
                       items: [
                         DropdownMenuItem(
                             value: 'pendiente',
-                            child: Text('Pendiente de confirmación',
+                            child: Text('Pendiente de confirmaciÃƒÂ³n',
                                 style: GoogleFonts.inter(fontSize: 13.sp))),
                         DropdownMenuItem(
                             value: 'confirmada',
                             child: Text('Confirmada directamente',
                                 style: GoogleFonts.inter(fontSize: 13.sp))),
                       ],
-                      onChanged: (v) => setState(() => _estado = v ?? 'pendiente'),
+                      onChanged: (v) =>
+                          setState(() => _estado = v ?? 'pendiente'),
                     ),
                     SizedBox(height: 12.h),
 
-                    // ── Notas ─────────────────────────────────────────────
-                    _Label('Notas (opcional)'),
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ Notas Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                    const _Label('Notas (opcional)'),
                     TextFormField(
                       controller: _notasCtrl,
                       maxLines: 3,
-                      decoration: _inputDeco('Observaciones o instrucciones...'),
+                      decoration:
+                          _inputDeco('Observaciones o instrucciones...'),
                     ),
                     SizedBox(height: 20.h),
 
-                    // ── Notificaciones ────────────────────────────────────
-                    _Seccion('Notificaciones al paciente'),
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ Notificaciones Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                    const _Seccion('Notificaciones al paciente'),
                     SizedBox(height: 8.h),
                     Container(
                       padding: EdgeInsets.all(14.r),
@@ -427,12 +503,12 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                         children: [
                           _CheckItem(
                               value: _notificarEmail,
-                              label: 'Email de confirmación',
+                              label: 'Email de confirmaciÃƒÂ³n',
                               onChanged: (v) =>
                                   setState(() => _notificarEmail = v)),
                           _CheckItem(
                               value: _notificarSms,
-                              label: 'SMS de confirmación',
+                              label: 'SMS de confirmaciÃƒÂ³n',
                               onChanged: (v) =>
                                   setState(() => _notificarSms = v)),
                           _CheckItem(
@@ -450,11 +526,13 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
                     ),
                     SizedBox(height: 24.h),
 
-                    // ── Botón guardar ─────────────────────────────────────
+                    // Ã¢â€â‚¬Ã¢â€â‚¬ BotÃƒÂ³n guardar Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _guardando || _conflictoMsg != null
+                        onPressed: _guardando ||
+                                _conflictoMsg != null ||
+                                _psicologos.isEmpty
                             ? null
                             : _guardar,
                         child: _guardando
@@ -481,7 +559,7 @@ class _NuevaCitaScreenState extends ConsumerState<NuevaCitaScreen> {
   InputDecoration _inputDeco(String hint) => InputDecoration(hintText: hint);
 }
 
-// ── Widgets auxiliares del form ───────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Widgets auxiliares del form Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 class _Seccion extends StatelessWidget {
   final String titulo;
@@ -535,7 +613,7 @@ class _CheckItem extends StatelessWidget {
   }
 }
 
-// ── Selector de paciente: bottom sheet con búsqueda ──────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Selector de paciente: bottom sheet con bÃƒÂºsqueda Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 class _SelectorPacienteSheet extends StatefulWidget {
   final List<Map<String, dynamic>> pacientes;
@@ -606,7 +684,7 @@ class _SelectorPacienteSheetState extends State<_SelectorPacienteSheet> {
                       fontSize: 16.sp, fontWeight: FontWeight.w600),
                 ),
                 SizedBox(height: 12.h),
-                // Campo de búsqueda
+                // Campo de bÃƒÂºsqueda
                 TextField(
                   controller: _busquedaCtrl,
                   autofocus: true,
@@ -646,7 +724,8 @@ class _SelectorPacienteSheetState extends State<_SelectorPacienteSheet> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Iconsax.people, size: 48.sp, color: AppTheme.textGrey),
+                        Icon(Iconsax.people,
+                            size: 48.sp, color: AppTheme.textGrey),
                         SizedBox(height: 12.h),
                         Text('Sin resultados',
                             style: GoogleFonts.inter(
@@ -658,7 +737,7 @@ class _SelectorPacienteSheetState extends State<_SelectorPacienteSheet> {
                     controller: scrollCtrl,
                     itemCount: _filtrados.length,
                     separatorBuilder: (_, __) =>
-                        Divider(height: 1, color: AppTheme.divider),
+                        const Divider(height: 1, color: AppTheme.divider),
                     itemBuilder: (ctx, i) {
                       final p = _filtrados[i];
                       final nombre = p['nombre']?.toString() ?? '';
@@ -671,9 +750,10 @@ class _SelectorPacienteSheetState extends State<_SelectorPacienteSheet> {
                         onTap: () => Navigator.pop(ctx, p),
                         leading: CircleAvatar(
                           radius: 20.r,
-                          backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
+                          backgroundColor:
+                              AppTheme.primary.withValues(alpha: 0.1),
                           child: Text(
-                            _iniciales(nombre),
+                            nombre.iniciales,
                             style: GoogleFonts.inter(
                                 fontSize: 13.sp,
                                 fontWeight: FontWeight.bold,
@@ -698,8 +778,7 @@ class _SelectorPacienteSheetState extends State<_SelectorPacienteSheet> {
                                 ),
                                 child: Text('Inactivo',
                                     style: GoogleFonts.inter(
-                                        fontSize: 9.sp,
-                                        color: AppTheme.error)),
+                                        fontSize: 9.sp, color: AppTheme.error)),
                               ),
                           ],
                         ),
@@ -733,23 +812,4 @@ class _SelectorPacienteSheetState extends State<_SelectorPacienteSheet> {
       ),
     );
   }
-
-  String _iniciales(String nombre) {
-    final partes = nombre.trim().split(' ');
-    if (partes.length >= 2) {
-      return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
-    }
-    return nombre.substring(0, nombre.length >= 2 ? 2 : 1).toUpperCase();
-  }
-}
-
-// Helper de responsive para este screen
-Widget _desktopWrap(BuildContext context, Widget child) {
-  if (!context.isDesktop) return child;
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: child,
-    ),
-  );
 }

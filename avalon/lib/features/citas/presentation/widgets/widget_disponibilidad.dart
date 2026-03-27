@@ -6,14 +6,16 @@ import 'package:intl/intl.dart';
 import '../providers/citas_provider.dart';
 import '../../domain/cita.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/string_utils.dart';
 
 class WidgetDisponibilidad extends ConsumerWidget {
   const WidgetDisponibilidad({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final disponibilidad = ref.watch(disponibilidadProvider);
-    
+    final citasState = ref.watch(citasProvider);
+    final disponibilidad = citasState.disponibilidad;
+
     return Card(
       child: Padding(
         padding: EdgeInsets.all(16.w),
@@ -29,7 +31,21 @@ class WidgetDisponibilidad extends ConsumerWidget {
               ),
             ),
             SizedBox(height: 12.h),
-            if (disponibilidad.isEmpty)
+            if (citasState.cargando)
+              const Center(
+                  child: Padding(
+                padding: EdgeInsets.all(8),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ))
+            else if (citasState.error != null)
+              Text(
+                citasState.error!,
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  color: AppTheme.error,
+                ),
+              )
+            else if (disponibilidad.isEmpty)
               Text(
                 'No hay psicólogos disponibles',
                 style: GoogleFonts.inter(
@@ -75,9 +91,10 @@ class _PsicologoDisponibilidadItem extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 20.r,
-            backgroundColor: psicologo.estaDisponible ? AppTheme.accent : AppTheme.warning,
+            backgroundColor:
+                psicologo.estaDisponible ? AppTheme.accent : AppTheme.warning,
             child: Text(
-              _iniciales(psicologo.nombre),
+              psicologo.nombre.iniciales,
               style: GoogleFonts.inter(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -123,7 +140,9 @@ class _PsicologoDisponibilidadItem extends StatelessWidget {
                 width: 8.w,
                 height: 8.h,
                 decoration: BoxDecoration(
-                  color: psicologo.estaDisponible ? AppTheme.accent : AppTheme.warning,
+                  color: psicologo.estaDisponible
+                      ? AppTheme.accent
+                      : AppTheme.warning,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -132,7 +151,9 @@ class _PsicologoDisponibilidadItem extends StatelessWidget {
                 psicologo.estaDisponible ? 'Libre' : 'Ocupado',
                 style: GoogleFonts.inter(
                   fontSize: 8.sp,
-                  color: psicologo.estaDisponible ? AppTheme.accent : AppTheme.warning,
+                  color: psicologo.estaDisponible
+                      ? AppTheme.accent
+                      : AppTheme.warning,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -145,9 +166,3 @@ class _PsicologoDisponibilidadItem extends StatelessWidget {
 }
 
 // Nota: extensión iniciales centralizada en AppUser y Paciente
-
-String _iniciales(String nombre) {
-  final partes = nombre.trim().split(' ');
-  if (partes.length >= 2) return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
-  return nombre.substring(0, nombre.length >= 2 ? 2 : 1).toUpperCase();
-}

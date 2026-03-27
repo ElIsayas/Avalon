@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../providers/citas_provider.dart';
-import '../../domain/cita.dart';
+import '../../../recordatorios/domain/recordatorio_ex.dart';
+import '../../../recordatorios/presentation/providers/recordatorios_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class WidgetRecordatorios extends ConsumerWidget {
@@ -11,9 +11,11 @@ class WidgetRecordatorios extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recordatorios = ref.watch(recordatoriosProvider);
-    final tieneUrgentes = recordatorios.any((r) => r.prioridad == PrioridadRecordatorio.urgente);
-    
+    final state = ref.watch(recordatoriosExProvider);
+    final recordatorios =
+        state.recordatorios.where((r) => !r.resuelto).toList();
+    final tieneUrgentes = recordatorios.any((r) => r.prioridad == 'urgente');
+
     return Card(
       child: Padding(
         padding: EdgeInsets.all(16.w),
@@ -44,9 +46,10 @@ class WidgetRecordatorios extends ConsumerWidget {
                         ),
                       ),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.1),
+                        color: AppTheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: Text(
@@ -63,7 +66,22 @@ class WidgetRecordatorios extends ConsumerWidget {
               ],
             ),
             SizedBox(height: 12.h),
-            if (recordatorios.isEmpty)
+            if (state.isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(8),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else if (state.error != null)
+              Text(
+                state.error!,
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  color: AppTheme.error,
+                ),
+              )
+            else if (recordatorios.isEmpty)
               Text(
                 'No hay recordatorios activos',
                 style: GoogleFonts.inter(
@@ -81,7 +99,7 @@ class WidgetRecordatorios extends ConsumerWidget {
               Padding(
                 padding: EdgeInsets.only(top: 8.h),
                 child: Text(
-                  'Ver todos en Recordatorios →',
+                  'Ver todos en Recordatorios ->',
                   style: GoogleFonts.inter(
                     fontSize: 12.sp,
                     color: AppTheme.primary,
@@ -97,25 +115,14 @@ class WidgetRecordatorios extends ConsumerWidget {
 }
 
 class _RecordatorioItem extends StatelessWidget {
-  final Recordatorio recordatorio;
+  final RecordatorioEx recordatorio;
 
   const _RecordatorioItem({required this.recordatorio});
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    switch (recordatorio.prioridad) {
-      case PrioridadRecordatorio.urgente:
-        color = AppTheme.error;
-        break;
-      case PrioridadRecordatorio.normal:
-        color = AppTheme.primary;
-        break;
-      case PrioridadRecordatorio.baja:
-        color = AppTheme.accent;
-        break;
-    }
-    
+    final color = recordatorio.prioridadColor;
+
     return Padding(
       padding: EdgeInsets.only(bottom: 8.h),
       child: Row(
@@ -155,7 +162,7 @@ class _RecordatorioItem extends StatelessWidget {
                   ),
                 SizedBox(height: 2.h),
                 Text(
-                  'Creado por ${recordatorio.creadoPor} • ${_tiempoRelativo(recordatorio.fechaRegistro)}',
+                  'Creado por ${recordatorio.creadoPorNombre ?? recordatorio.creadoPor} - ${_tiempoRelativo(recordatorio.fechaRegistro)}',
                   style: GoogleFonts.inter(
                     fontSize: 10.sp,
                     color: AppTheme.textGrey,
@@ -172,8 +179,8 @@ class _RecordatorioItem extends StatelessWidget {
   String _tiempoRelativo(DateTime fecha) {
     final ahora = DateTime.now();
     final diferencia = ahora.difference(fecha);
-    
-    if (diferencia.inDays > 0) return 'Hace ${diferencia.inDays} días';
+
+    if (diferencia.inDays > 0) return 'Hace ${diferencia.inDays} dias';
     if (diferencia.inHours > 0) return 'Hace ${diferencia.inHours} horas';
     if (diferencia.inMinutes > 0) return 'Hace ${diferencia.inMinutes} minutos';
     return 'Hace unos momentos';

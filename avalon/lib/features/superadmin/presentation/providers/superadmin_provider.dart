@@ -22,9 +22,9 @@ class SuperAdminState {
   const SuperAdminState({
     this.metricas,
     this.organizaciones = const [],
-    this.usuarios       = const [],
-    this.pagos          = const [],
-    this.isLoading      = false,
+    this.usuarios = const [],
+    this.pagos = const [],
+    this.isLoading = false,
     this.error,
     this.successMessage,
   });
@@ -38,15 +38,17 @@ class SuperAdminState {
     String? error,
     String? successMessage,
     bool clearMessages = false,
-  }) => SuperAdminState(
-    metricas:       metricas       ?? this.metricas,
-    organizaciones: organizaciones ?? this.organizaciones,
-    usuarios:       usuarios       ?? this.usuarios,
-    pagos:          pagos          ?? this.pagos,
-    isLoading:      isLoading      ?? this.isLoading,
-    error:          clearMessages  ? null : error          ?? this.error,
-    successMessage: clearMessages  ? null : successMessage ?? this.successMessage,
-  );
+  }) =>
+      SuperAdminState(
+        metricas: metricas ?? this.metricas,
+        organizaciones: organizaciones ?? this.organizaciones,
+        usuarios: usuarios ?? this.usuarios,
+        pagos: pagos ?? this.pagos,
+        isLoading: isLoading ?? this.isLoading,
+        error: clearMessages ? null : error ?? this.error,
+        successMessage:
+            clearMessages ? null : successMessage ?? this.successMessage,
+      );
 }
 
 // ── NOTIFIER ──────────────────────────────────────────────────────────────────
@@ -63,9 +65,9 @@ class SuperAdminNotifier extends StateNotifier<SuperAdminState> {
         _svc.getOrganizaciones(),
       ]);
       state = state.copyWith(
-        metricas:       results[0] as SaMetricas,
+        metricas: results[0] as SaMetricas,
         organizaciones: results[1] as List<SaOrganizacion>,
-        isLoading:      false,
+        isLoading: false,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _msg(e));
@@ -106,7 +108,8 @@ class SuperAdminNotifier extends StateNotifier<SuperAdminState> {
     }
   }
 
-  Future<bool> editarOrganizacion(String orgId, {String? nombre, bool? activa}) async {
+  Future<bool> editarOrganizacion(String orgId,
+      {String? nombre, bool? activa}) async {
     state = state.copyWith(isLoading: true, clearMessages: true);
     try {
       await _svc.editarOrganizacion(orgId, nombre: nombre, activa: activa);
@@ -119,10 +122,12 @@ class SuperAdminNotifier extends StateNotifier<SuperAdminState> {
     }
   }
 
-  Future<bool> cambiarPlan(String orgId, String plan, {DateTime? vencimiento, int? maxCustom}) async {
+  Future<bool> cambiarPlan(String orgId, String plan,
+      {DateTime? vencimiento, int? maxCustom}) async {
     state = state.copyWith(isLoading: true, clearMessages: true);
     try {
-      await _svc.cambiarPlan(orgId, plan, vencimiento: vencimiento, maxCustom: maxCustom);
+      await _svc.cambiarPlan(orgId, plan,
+          vencimiento: vencimiento, maxCustom: maxCustom);
       await cargarTodo();
       state = state.copyWith(successMessage: 'Plan actualizado a $plan');
       return true;
@@ -137,7 +142,8 @@ class SuperAdminNotifier extends StateNotifier<SuperAdminState> {
     try {
       await _svc.ajustarLimitePlatinum(orgId, nuevoMax);
       await cargarTodo();
-      state = state.copyWith(successMessage: 'Límite actualizado a $nuevoMax usuarios');
+      state = state.copyWith(
+          successMessage: 'Límite actualizado a $nuevoMax usuarios');
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _msg(e));
@@ -147,15 +153,24 @@ class SuperAdminNotifier extends StateNotifier<SuperAdminState> {
 
   // ── Usuarios ─────────────────────────────────────────────────────────
   Future<bool> crearUsuario({
-    required String orgId, required String nombre, required String email,
-    required String password, String rol = 'psicologo',
-    String? especialidad, DateTime? fechaExpiracion,
+    required String orgId,
+    required String nombre,
+    required String email,
+    required String password,
+    String rol = 'psicologo',
+    String? especialidad,
+    DateTime? fechaExpiracion,
   }) async {
     state = state.copyWith(isLoading: true, clearMessages: true);
     try {
       await _svc.crearUsuario(
-        orgId: orgId, nombre: nombre, email: email, password: password,
-        rol: rol, especialidad: especialidad, fechaExpiracion: fechaExpiracion,
+        orgId: orgId,
+        nombre: nombre,
+        email: email,
+        password: password,
+        rol: rol,
+        especialidad: especialidad,
+        fechaExpiracion: fechaExpiracion,
       );
       await cargarUsuarios();
       state = state.copyWith(successMessage: 'Usuario "$nombre" creado');
@@ -166,15 +181,24 @@ class SuperAdminNotifier extends StateNotifier<SuperAdminState> {
     }
   }
 
-  Future<bool> editarUsuario(String userId, {
-    String? nombre, String? rol, bool? activa,
-    String? especialidad, DateTime? fechaExpiracion, String? nuevaPassword,
+  Future<bool> editarUsuario(
+    String userId, {
+    String? nombre,
+    String? rol,
+    bool? activa,
+    String? especialidad,
+    DateTime? fechaExpiracion,
+    String? nuevaPassword,
   }) async {
     state = state.copyWith(isLoading: true, clearMessages: true);
     try {
       await _svc.editarUsuario(
-        userId, nombre: nombre, rol: rol, activa: activa,
-        especialidad: especialidad, fechaExpiracion: fechaExpiracion,
+        userId,
+        nombre: nombre,
+        rol: rol,
+        activa: activa,
+        especialidad: especialidad,
+        fechaExpiracion: fechaExpiracion,
         nuevaPassword: nuevaPassword,
       );
       // Actualizar localmente para respuesta inmediata
@@ -209,6 +233,7 @@ class SuperAdminNotifier extends StateNotifier<SuperAdminState> {
 }
 
 // ── PROVIDER ──────────────────────────────────────────────────────────────────
-final superAdminProvider = StateNotifierProvider<SuperAdminNotifier, SuperAdminState>((ref) {
+final superAdminProvider =
+    StateNotifierProvider<SuperAdminNotifier, SuperAdminState>((ref) {
   return SuperAdminNotifier(ref.read(superAdminServiceProvider));
 });

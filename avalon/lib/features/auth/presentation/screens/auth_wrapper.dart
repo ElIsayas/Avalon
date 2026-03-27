@@ -15,25 +15,40 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    // Recuperar sesión activa al iniciar la app
-    Future.microtask(() => ref.read(authProvider.notifier).initialize());
+    // Recuperar sesiÃ³n activa al iniciar la app
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authProvider.notifier).initialize();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(authProvider);
 
-    // Cargando sesión inicial
+    ref.listen(authProvider, (_, next) {
+      final msg = next.error;
+      if (msg == null || next.isLoading) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 5),
+          content: Text(msg),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      ref.read(authProvider.notifier).clearError();
+    });
+
+    // Cargando sesiÃ³n inicial
     if (state.isLoading && state.user == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // Autenticado → Dashboard
+    // Autenticado â†’ Dashboard
     if (state.isAuthenticated) return const AppShell();
 
-    // No autenticado → Login
+    // No autenticado â†’ Login
     return const LoginScreen();
   }
 }

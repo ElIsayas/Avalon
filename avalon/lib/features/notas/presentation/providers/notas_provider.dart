@@ -41,15 +41,18 @@ class NotasState {
     TipoNota? filtroTipo,
     bool clearMessages = false,
     bool clearFiltros = false,
-  }) => NotasState(
-    notas:            notas            ?? this.notas,
-    isLoading:        isLoading        ?? this.isLoading,
-    isSaving:         isSaving         ?? this.isSaving,
-    error:            clearMessages ? null : error            ?? this.error,
-    successMessage:   clearMessages ? null : successMessage   ?? this.successMessage,
-    filtroPacienteId: clearFiltros  ? null : filtroPacienteId ?? this.filtroPacienteId,
-    filtroTipo:       clearFiltros  ? null : filtroTipo       ?? this.filtroTipo,
-  );
+  }) =>
+      NotasState(
+        notas: notas ?? this.notas,
+        isLoading: isLoading ?? this.isLoading,
+        isSaving: isSaving ?? this.isSaving,
+        error: clearMessages ? null : error ?? this.error,
+        successMessage:
+            clearMessages ? null : successMessage ?? this.successMessage,
+        filtroPacienteId:
+            clearFiltros ? null : filtroPacienteId ?? this.filtroPacienteId,
+        filtroTipo: clearFiltros ? null : filtroTipo ?? this.filtroTipo,
+      );
 
   // Notas filtradas según los filtros activos
   List<NotaTerapia> get notasFiltradas {
@@ -84,7 +87,7 @@ class NotasNotifier extends StateNotifier<NotasState> {
   }
 
   // Cargar notas de un paciente específico (desde historial del paciente)
-  Future<void> cargarDespaciente(String pacienteId) async {
+  Future<void> cargarDePaciente(String pacienteId) async {
     state = state.copyWith(isLoading: true, clearMessages: true);
     try {
       final lista = await _service.getNotasPaciente(pacienteId);
@@ -110,13 +113,13 @@ class NotasNotifier extends StateNotifier<NotasState> {
     try {
       final nueva = await _service.crear(
         pacienteId: pacienteId,
-        contenido:  contenido.trim(),
-        tipo:       tipo.value,
-        citaId:     citaId,
+        contenido: contenido.trim(),
+        tipo: tipo.value,
+        citaId: citaId,
       );
       state = state.copyWith(
-        notas:          [nueva, ...state.notas],
-        isSaving:       false,
+        notas: [nueva, ...state.notas],
+        isSaving: false,
         successMessage: 'Nota creada exitosamente',
       );
       return true;
@@ -132,18 +135,29 @@ class NotasNotifier extends StateNotifier<NotasState> {
     String? contenido,
     TipoNota? tipo,
   }) async {
+    NotaTerapia? notaActual;
+    for (final nota in state.notas) {
+      if (nota.id == notaId) {
+        notaActual = nota;
+        break;
+      }
+    }
+    if (notaActual?.firmada == true) {
+      state =
+          state.copyWith(error: 'La nota ya fue firmada y no puede editarse');
+      return false;
+    }
     state = state.copyWith(isSaving: true, clearMessages: true);
     try {
       final actualizada = await _service.actualizar(
-        notaId:    notaId,
+        notaId: notaId,
         contenido: contenido?.trim(),
-        tipo:      tipo?.value,
+        tipo: tipo?.value,
       );
       state = state.copyWith(
-        notas: state.notas
-            .map((n) => n.id == notaId ? actualizada : n)
-            .toList(),
-        isSaving:       false,
+        notas:
+            state.notas.map((n) => n.id == notaId ? actualizada : n).toList(),
+        isSaving: false,
         successMessage: 'Nota actualizada',
       );
       return true;
@@ -163,7 +177,7 @@ class NotasNotifier extends StateNotifier<NotasState> {
           if (n.id != notaId) return n;
           return n.copyWith(firmada: true, firmadaEn: DateTime.now());
         }).toList(),
-        isSaving:       false,
+        isSaving: false,
         successMessage: 'Nota firmada y bloqueada',
       );
       return true;
@@ -179,8 +193,8 @@ class NotasNotifier extends StateNotifier<NotasState> {
     try {
       await _service.eliminar(notaId);
       state = state.copyWith(
-        notas:          state.notas.where((n) => n.id != notaId).toList(),
-        isSaving:       false,
+        notas: state.notas.where((n) => n.id != notaId).toList(),
+        isSaving: false,
         successMessage: 'Nota eliminada',
       );
       return true;
@@ -196,7 +210,7 @@ class NotasNotifier extends StateNotifier<NotasState> {
   void setFiltroTipo(TipoNota? tipo) =>
       state = state.copyWith(filtroTipo: tipo);
   void limpiarFiltros() => state = state.copyWith(clearFiltros: true);
-  void clearMessages()   => state = state.copyWith(clearMessages: true);
+  void clearMessages() => state = state.copyWith(clearMessages: true);
 
   String _msg(Object e) => e.toString().replaceFirst('Exception: ', '');
 }
@@ -211,7 +225,7 @@ final notasPacienteProvider =
     StateNotifierProvider.family<NotasNotifier, NotasState, String>(
   (ref, pacienteId) {
     final notifier = NotasNotifier(ref.read(notasServiceProvider));
-    notifier.cargarDespaciente(pacienteId);
+    notifier.cargarDePaciente(pacienteId);
     return notifier;
   },
 );

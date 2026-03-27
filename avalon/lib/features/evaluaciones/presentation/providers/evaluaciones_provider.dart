@@ -46,24 +46,25 @@ class EvaluacionesService {
       };
 
       final params = <String, dynamic>{
-        'p_token':           _token,
-        'p_paciente_id':     pacienteId,
-        'p_escala':          escala,
-        'p_puntuacion':      puntuacionTotal,
-        'p_respuestas':      jsonEncode(respuestasMap),
+        'p_token': _token,
+        'p_paciente_id': pacienteId,
+        'p_escala': escala,
+        'p_puntuacion': puntuacionTotal,
+        'p_respuestas': jsonEncode(respuestasMap),
       };
-      if (citaId         != null) params['p_cita_id']       = citaId;
+      if (citaId != null) params['p_cita_id'] = citaId;
       if (interpretacion != null) params['p_interpretacion'] = interpretacion;
-      if (observaciones  != null) params['p_observaciones']  = observaciones;
+      if (observaciones != null) params['p_observaciones'] = observaciones;
 
-      final res  = await _client.rpc('crear_evaluacion', params: params);
-      final data = res is List ? (res as List).first : res;
+      final res = await _client.rpc('crear_evaluacion', params: params);
+      final data = res is List ? (res).first : res;
       if (data is Map && data.containsKey('error')) {
         throw Exception(data['error']);
       }
       return Evaluacion.fromJson(Map<String, dynamic>.from(data as Map));
     } catch (e, st) {
-      AppLogger.database('Error creando evaluación: $e', error: e, stackTrace: st);
+      AppLogger.database('Error creando evaluación: $e',
+          error: e, stackTrace: st);
       rethrow;
     }
   }
@@ -90,9 +91,9 @@ class EvaluacionesState {
   final String? successMessage;
 
   const EvaluacionesState({
-    this.evaluaciones   = const [],
-    this.isLoading      = false,
-    this.isSaving       = false,
+    this.evaluaciones = const [],
+    this.isLoading = false,
+    this.isSaving = false,
     this.error,
     this.successMessage,
   });
@@ -106,11 +107,12 @@ class EvaluacionesState {
     bool clearMessages = false,
   }) =>
       EvaluacionesState(
-        evaluaciones:   evaluaciones   ?? this.evaluaciones,
-        isLoading:      isLoading      ?? this.isLoading,
-        isSaving:       isSaving       ?? this.isSaving,
-        error:          clearMessages ? null : error          ?? this.error,
-        successMessage: clearMessages ? null : successMessage ?? this.successMessage,
+        evaluaciones: evaluaciones ?? this.evaluaciones,
+        isLoading: isLoading ?? this.isLoading,
+        isSaving: isSaving ?? this.isSaving,
+        error: clearMessages ? null : error ?? this.error,
+        successMessage:
+            clearMessages ? null : successMessage ?? this.successMessage,
       );
 }
 
@@ -143,17 +145,17 @@ class EvaluacionesNotifier extends StateNotifier<EvaluacionesState> {
     state = state.copyWith(isSaving: true, clearMessages: true);
     try {
       final nueva = await _service.crear(
-        pacienteId:     pacienteId,
-        escala:         escala,
+        pacienteId: pacienteId,
+        escala: escala,
         puntuacionTotal: puntuacionTotal,
-        respuestas:     respuestas,
-        citaId:         citaId,
+        respuestas: respuestas,
+        citaId: citaId,
         interpretacion: interpretacion,
-        observaciones:  observaciones,
+        observaciones: observaciones,
       );
       state = state.copyWith(
-        evaluaciones:   [nueva, ...state.evaluaciones],
-        isSaving:       false,
+        evaluaciones: [nueva, ...state.evaluaciones],
+        isSaving: false,
         successMessage: 'Evaluación registrada correctamente',
       );
       return true;
@@ -168,8 +170,8 @@ class EvaluacionesNotifier extends StateNotifier<EvaluacionesState> {
     try {
       await _service.eliminar(id);
       state = state.copyWith(
-        evaluaciones:   state.evaluaciones.where((e) => e.id != id).toList(),
-        isSaving:       false,
+        evaluaciones: state.evaluaciones.where((e) => e.id != id).toList(),
+        isSaving: false,
         successMessage: 'Evaluación eliminada',
       );
       return true;
@@ -195,10 +197,11 @@ final evaluacionesProvider =
 });
 
 // Provider con scope de paciente (para usarse desde el historial)
-final evaluacionesPacienteProvider =
-    StateNotifierProvider.family<EvaluacionesNotifier, EvaluacionesState, String>(
+final evaluacionesPacienteProvider = StateNotifierProvider.family<
+    EvaluacionesNotifier, EvaluacionesState, String>(
   (ref, pacienteId) {
-    final notifier = EvaluacionesNotifier(ref.read(evaluacionesServiceProvider));
+    final notifier =
+        EvaluacionesNotifier(ref.read(evaluacionesServiceProvider));
     notifier.cargar(pacienteId: pacienteId);
     return notifier;
   },

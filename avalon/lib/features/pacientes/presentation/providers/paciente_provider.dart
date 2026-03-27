@@ -34,14 +34,15 @@ class PacientesState {
     bool clearMessages = false,
   }) {
     return PacientesState(
-      pacientes:      pacientes      ?? this.pacientes,
-      isLoading:      isLoading      ?? this.isLoading,
-      error:          clearMessages  ? null : error          ?? this.error,
-      successMessage: clearMessages  ? null : successMessage ?? this.successMessage,
+      pacientes: pacientes ?? this.pacientes,
+      isLoading: isLoading ?? this.isLoading,
+      error: clearMessages ? null : error ?? this.error,
+      successMessage:
+          clearMessages ? null : successMessage ?? this.successMessage,
     );
   }
 
-  int get total   => pacientes.length;
+  int get total => pacientes.length;
   int get activos => pacientes.where((p) => p.activo).length;
 }
 
@@ -52,8 +53,7 @@ class PacientesNotifier extends StateNotifier<PacientesState> {
 
   PacientesNotifier(this._service, this._ref) : super(const PacientesState());
 
-  String get _userId  => _ref.read(currentUserProvider)?.id ?? '';
-  bool   get _isAdmin => _ref.read(isAdminProvider);
+  String get _userId => _ref.read(currentUserProvider)?.id ?? '';
 
   Future<void> cargar() async {
     state = state.copyWith(isLoading: true, clearMessages: true);
@@ -66,7 +66,10 @@ class PacientesNotifier extends StateNotifier<PacientesState> {
   }
 
   Future<void> buscar(String query) async {
-    if (query.trim().isEmpty) { await cargar(); return; }
+    if (query.trim().isEmpty) {
+      await cargar();
+      return;
+    }
     state = state.copyWith(isLoading: true, clearMessages: true);
     try {
       final lista = await _service.buscar(query);
@@ -90,21 +93,29 @@ class PacientesNotifier extends StateNotifier<PacientesState> {
       state = state.copyWith(error: 'Sesión expirada');
       return false;
     }
+    final user = _ref.read(currentUserProvider);
+    final puedeCrear = user?.isAdmin == true ||
+        user?.isPsicologo == true ||
+        user?.isSuperAdmin == true;
+    if (!puedeCrear) {
+      state = state.copyWith(error: 'No tienes permisos para crear pacientes');
+      return false;
+    }
     state = state.copyWith(isLoading: true, clearMessages: true);
     try {
       final nuevo = await _service.crear(
-        nombre:                nombre,
-        email:                 email,
-        numeroDocumento:       numeroDocumento,
-        telefono:              telefono,
-        direccion:             direccion,
-        fechaNacimiento:       fechaNacimiento,
-        historialMedico:       historialMedico,
+        nombre: nombre,
+        email: email,
+        numeroDocumento: numeroDocumento,
+        telefono: telefono,
+        direccion: direccion,
+        fechaNacimiento: fechaNacimiento,
+        historialMedico: historialMedico,
         objetivosTerapeuticos: objetivosTerapeuticos,
       );
       state = state.copyWith(
-        pacientes:      [nuevo, ...state.pacientes],
-        isLoading:      false,
+        pacientes: [nuevo, ...state.pacientes],
+        isLoading: false,
         successMessage: 'Paciente creado exitosamente',
       );
       return true;
@@ -129,20 +140,21 @@ class PacientesNotifier extends StateNotifier<PacientesState> {
     state = state.copyWith(isLoading: true, clearMessages: true);
     try {
       final actualizado = await _service.actualizar(
-        id:                    id,
-        nombre:                nombre,
-        email:                 email,
-        numeroDocumento:       numeroDocumento,
-        telefono:              telefono,
-        direccion:             direccion,
-        fechaNacimiento:       fechaNacimiento,
-        historialMedico:       historialMedico,
+        id: id,
+        nombre: nombre,
+        email: email,
+        numeroDocumento: numeroDocumento,
+        telefono: telefono,
+        direccion: direccion,
+        fechaNacimiento: fechaNacimiento,
+        historialMedico: historialMedico,
         objetivosTerapeuticos: objetivosTerapeuticos,
-        activo:                activo,
+        activo: activo,
       );
       state = state.copyWith(
-        pacientes:      state.pacientes.map((p) => p.id == id ? actualizado : p).toList(),
-        isLoading:      false,
+        pacientes:
+            state.pacientes.map((p) => p.id == id ? actualizado : p).toList(),
+        isLoading: false,
         successMessage: 'Paciente actualizado',
       );
       return true;
@@ -157,8 +169,8 @@ class PacientesNotifier extends StateNotifier<PacientesState> {
     try {
       await _service.eliminar(id);
       state = state.copyWith(
-        pacientes:      state.pacientes.where((p) => p.id != id).toList(),
-        isLoading:      false,
+        pacientes: state.pacientes.where((p) => p.id != id).toList(),
+        isLoading: false,
         successMessage: 'Paciente eliminado',
       );
       return true;
@@ -169,13 +181,16 @@ class PacientesNotifier extends StateNotifier<PacientesState> {
   }
 
   Future<void> toggleActivo(String id) async {
-    final paciente    = state.pacientes.firstWhere((p) => p.id == id);
+    final paciente = state.pacientes.firstWhere((p) => p.id == id);
     final nuevoEstado = !paciente.activo;
     try {
       await _service.toggleActivo(id, nuevoEstado);
       state = state.copyWith(
-        pacientes:      state.pacientes.map((p) => p.id == id ? p.copyWith(activo: nuevoEstado) : p).toList(),
-        successMessage: nuevoEstado ? 'Paciente activado' : 'Paciente desactivado',
+        pacientes: state.pacientes
+            .map((p) => p.id == id ? p.copyWith(activo: nuevoEstado) : p)
+            .toList(),
+        successMessage:
+            nuevoEstado ? 'Paciente activado' : 'Paciente desactivado',
       );
     } catch (e) {
       state = state.copyWith(error: _msg(e));
@@ -188,6 +203,7 @@ class PacientesNotifier extends StateNotifier<PacientesState> {
 }
 
 // ── PROVIDER ──────────────────────────────────────────────────────────────────
-final pacientesProvider = StateNotifierProvider<PacientesNotifier, PacientesState>((ref) {
+final pacientesProvider =
+    StateNotifierProvider<PacientesNotifier, PacientesState>((ref) {
   return PacientesNotifier(ref.read(pacienteServiceProvider), ref);
 });

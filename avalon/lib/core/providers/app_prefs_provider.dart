@@ -10,11 +10,11 @@ class AppPrefs {
   final double textScale;
 
   const AppPrefs({
-    this.locale           = const Locale('es'),
-    this.notifCitas       = true,
+    this.locale = const Locale('es'),
+    this.notifCitas = true,
     this.notifRecordatorios = true,
-    this.notifSistema     = true,
-    this.textScale        = 1.0,
+    this.notifSistema = true,
+    this.textScale = 1.0,
   });
 
   AppPrefs copyWith({
@@ -25,19 +25,19 @@ class AppPrefs {
     double? textScale,
   }) =>
       AppPrefs(
-        locale:              locale              ?? this.locale,
-        notifCitas:          notifCitas          ?? this.notifCitas,
-        notifRecordatorios:  notifRecordatorios  ?? this.notifRecordatorios,
-        notifSistema:        notifSistema        ?? this.notifSistema,
-        textScale:           textScale           ?? this.textScale,
+        locale: locale ?? this.locale,
+        notifCitas: notifCitas ?? this.notifCitas,
+        notifRecordatorios: notifRecordatorios ?? this.notifRecordatorios,
+        notifSistema: notifSistema ?? this.notifSistema,
+        textScale: textScale ?? this.textScale,
       );
 }
 
 class AppPrefsNotifier extends StateNotifier<AppPrefs> {
-  static const _kLocale    = 'avalon_locale';
-  static const _kNotifC    = 'avalon_notif_citas';
-  static const _kNotifR    = 'avalon_notif_rec';
-  static const _kNotifS    = 'avalon_notif_sis';
+  static const _kLocale = 'avalon_locale';
+  static const _kNotifC = 'avalon_notif_citas';
+  static const _kNotifR = 'avalon_notif_rec';
+  static const _kNotifS = 'avalon_notif_sis';
   static const _kTextScale = 'avalon_text_scale';
 
   AppPrefsNotifier() : super(const AppPrefs()) {
@@ -47,11 +47,11 @@ class AppPrefsNotifier extends StateNotifier<AppPrefs> {
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
     state = AppPrefs(
-      locale:             Locale(p.getString(_kLocale) ?? 'es'),
-      notifCitas:         p.getBool(_kNotifC)    ?? true,
-      notifRecordatorios: p.getBool(_kNotifR)    ?? true,
-      notifSistema:       p.getBool(_kNotifS)    ?? true,
-      textScale:          p.getDouble(_kTextScale) ?? 1.0,
+      locale: Locale(p.getString(_kLocale) ?? 'es'),
+      notifCitas: p.getBool(_kNotifC) ?? true,
+      notifRecordatorios: p.getBool(_kNotifR) ?? true,
+      notifSistema: p.getBool(_kNotifS) ?? true,
+      textScale: p.getDouble(_kTextScale) ?? 1.0,
     );
   }
 

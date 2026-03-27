@@ -28,7 +28,9 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(notasProvider.notifier).cargarTodas());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notasProvider.notifier).cargarTodas();
+    });
   }
 
   @override
@@ -44,26 +46,30 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
     }
     if (_busqueda.isNotEmpty) {
       final q = _busqueda.toLowerCase();
-      lista = lista.where((n) =>
-        n.contenido.toLowerCase().contains(q) ||
-        (n.pacienteNombre?.toLowerCase().contains(q) ?? false) ||
-        (n.psicologoNombre?.toLowerCase().contains(q) ?? false),
-      ).toList();
+      lista = lista
+          .where(
+            (n) =>
+                n.contenido.toLowerCase().contains(q) ||
+                (n.pacienteNombre?.toLowerCase().contains(q) ?? false) ||
+                (n.psicologoNombre?.toLowerCase().contains(q) ?? false),
+          )
+          .toList();
     }
     return lista;
   }
 
   @override
   Widget build(BuildContext context) {
-    final state   = ref.watch(notasProvider);
-    final user    = ref.watch(currentUserProvider);
-    final notas   = _aplicarFiltros(state.notas);
+    final state = ref.watch(notasProvider);
+    final user = ref.watch(currentUserProvider);
+    final notas = _aplicarFiltros(state.notas);
     final puedeEscribir = user?.puedeEscribirNotas ?? false;
 
     // Snackbars
     ref.listen(notasProvider, (_, next) {
       if (next.successMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(next.successMessage!),
           backgroundColor: AppTheme.accent,
           behavior: SnackBarBehavior.floating,
@@ -72,6 +78,7 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
       }
       if (next.error != null && !next.isLoading) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
           content: Text(next.error!),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
@@ -103,7 +110,8 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'Buscar en notas, paciente...',
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                    hintStyle:
+                        TextStyle(color: Colors.white.withValues(alpha: 0.7)),
                     prefixIcon: Icon(Icons.search,
                         color: Colors.white.withValues(alpha: 0.8)),
                     suffixIcon: _busqueda.isNotEmpty
@@ -136,12 +144,12 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
                         onTap: () => setState(() => _filtroTipo = null),
                       ),
                       ...TipoNota.values.map((t) => _FiltroChip(
-                        label: t.label,
-                        selected: _filtroTipo == t,
-                        onTap: () => setState(
-                          () => _filtroTipo = _filtroTipo == t ? null : t,
-                        ),
-                      )),
+                            label: t.label,
+                            selected: _filtroTipo == t,
+                            onTap: () => setState(
+                              () => _filtroTipo = _filtroTipo == t ? null : t,
+                            ),
+                          )),
                     ],
                   ),
                 ),
@@ -150,35 +158,34 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
           ),
         ),
       ),
-
-      body: _desktopWrap(
+      body: desktopWrap(
         context,
         state.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : notas.isEmpty
-              ? _Empty(
-                  hayFiltro: _busqueda.isNotEmpty || _filtroTipo != null,
-                  onCrear: puedeEscribir ? _crearNota : null,
-                )
-              : RefreshIndicator(
-                  onRefresh: () => ref.read(notasProvider.notifier).cargarTodas(),
-                  child: ListView.builder(
-                    padding: EdgeInsets.all(16.r),
-                    itemCount: notas.length,
-                    itemBuilder: (_, i) => _NotaCard(
-                      nota: notas[i],
-                      onTap: () => _verDetalle(notas[i]),
-                      onEditar: !notas[i].firmada && puedeEscribir
-                          ? () => _editarNota(notas[i])
-                          : null,
-                      onEliminar: !notas[i].firmada && puedeEscribir
-                          ? () => _confirmarEliminar(notas[i])
-                          : null,
+            ? const Center(child: CircularProgressIndicator())
+            : notas.isEmpty
+                ? _Empty(
+                    hayFiltro: _busqueda.isNotEmpty || _filtroTipo != null,
+                    onCrear: puedeEscribir ? _crearNota : null,
+                  )
+                : RefreshIndicator(
+                    onRefresh: () =>
+                        ref.read(notasProvider.notifier).cargarTodas(),
+                    child: ListView.builder(
+                      padding: EdgeInsets.all(16.r),
+                      itemCount: notas.length,
+                      itemBuilder: (_, i) => _NotaCard(
+                        nota: notas[i],
+                        onTap: () => _verDetalle(notas[i]),
+                        onEditar: !notas[i].firmada && puedeEscribir
+                            ? () => _editarNota(notas[i])
+                            : null,
+                        onEliminar: !notas[i].firmada && puedeEscribir
+                            ? () => _confirmarEliminar(notas[i])
+                            : null,
+                      ),
                     ),
                   ),
-                ),
       ),
-
       floatingActionButton: puedeEscribir
           ? FloatingActionButton.extended(
               onPressed: _crearNota,
@@ -218,7 +225,7 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar nota'),
         content: const Text(
-            '¿Estás seguro de que deseas eliminar esta nota? Esta acción no se puede deshacer.'),
+            'Â¿EstÃ¡s seguro de que deseas eliminar esta nota? Esta acciÃ³n no se puede deshacer.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -237,7 +244,7 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
   }
 }
 
-// ── WIDGETS ───────────────────────────────────────────────────────────────────
+// â”€â”€ WIDGETS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _FiltroChip extends StatelessWidget {
   final String label;
@@ -290,11 +297,16 @@ class _NotaCard extends StatelessWidget {
 
   Color get _tipoColor {
     switch (nota.tipo) {
-      case TipoNota.sesion:          return AppTheme.primary;
-      case TipoNota.seguimiento:     return AppTheme.secondary;
-      case TipoNota.evaluacion:      return AppTheme.warning;
-      case TipoNota.interconsulta:   return AppTheme.accent;
-      case TipoNota.administrativa:  return AppTheme.textGrey;
+      case TipoNota.sesion:
+        return AppTheme.primary;
+      case TipoNota.seguimiento:
+        return AppTheme.secondary;
+      case TipoNota.evaluacion:
+        return AppTheme.warning;
+      case TipoNota.interconsulta:
+        return AppTheme.accent;
+      case TipoNota.administrativa:
+        return AppTheme.textGrey;
     }
   }
 
@@ -314,7 +326,8 @@ class _NotaCard extends StatelessWidget {
                 children: [
                   // Tipo badge
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
                     decoration: BoxDecoration(
                       color: _tipoColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6.r),
@@ -331,7 +344,8 @@ class _NotaCard extends StatelessWidget {
                   if (nota.firmada) ...[
                     SizedBox(width: 6.w),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
                       decoration: BoxDecoration(
                         color: AppTheme.accent.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6.r),
@@ -339,7 +353,8 @@ class _NotaCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.verified, size: 10.sp, color: AppTheme.accent),
+                          Icon(Icons.verified,
+                              size: 10.sp, color: AppTheme.accent),
                           SizedBox(width: 3.w),
                           Text('Firmada',
                               style: GoogleFonts.inter(
@@ -355,8 +370,12 @@ class _NotaCard extends StatelessWidget {
                   if (onEditar != null || onEliminar != null)
                     PopupMenuButton<String>(
                       onSelected: (v) {
-                        if (v == 'editar' && onEditar != null)   onEditar!();
-                        if (v == 'eliminar' && onEliminar != null) onEliminar!();
+                        if (v == 'editar' && onEditar != null) {
+                          onEditar!();
+                        }
+                        if (v == 'eliminar' && onEliminar != null) {
+                          onEliminar!();
+                        }
                       },
                       itemBuilder: (_) => [
                         if (onEditar != null)
@@ -372,8 +391,8 @@ class _NotaCard extends StatelessWidget {
                           const PopupMenuItem(
                             value: 'eliminar',
                             child: ListTile(
-                              leading: Icon(Icons.delete_outline,
-                                  color: Colors.red),
+                              leading:
+                                  Icon(Icons.delete_outline, color: Colors.red),
                               title: Text('Eliminar',
                                   style: TextStyle(color: Colors.red)),
                               dense: true,
@@ -429,10 +448,10 @@ class _NotaCard extends StatelessWidget {
 
   String _formatFecha(DateTime fecha) {
     final ahora = DateTime.now();
-    final diff  = ahora.difference(fecha);
-    if (diff.inDays == 0)  return 'Hoy ${DateFormat('HH:mm').format(fecha)}';
-    if (diff.inDays == 1)  return 'Ayer';
-    if (diff.inDays < 7)   return 'Hace ${diff.inDays} días';
+    final diff = ahora.difference(fecha);
+    if (diff.inDays == 0) return 'Hoy ${DateFormat('HH:mm').format(fecha)}';
+    if (diff.inDays == 1) return 'Ayer';
+    if (diff.inDays < 7) return 'Hace ${diff.inDays} dÃ­as';
     return DateFormat('dd/MM/yy').format(fecha);
   }
 }
@@ -462,31 +481,12 @@ class _Empty extends StatelessWidget {
           SizedBox(height: 8.h),
           Text(
             hayFiltro
-                ? 'Intenta con otro filtro o búsqueda'
+                ? 'Intenta con otro filtro o bÃºsqueda'
                 : context.t.crearNota,
             style: GoogleFonts.inter(fontSize: 14.sp, color: AppTheme.textGrey),
           ),
-          if (!hayFiltro && onCrear != null) ...[
-            SizedBox(height: 24.h),
-            ElevatedButton.icon(
-              onPressed: onCrear,
-              icon: const Icon(Icons.add),
-              label: Text(context.t.nuevaNota),
-            ),
-          ],
         ],
       ),
     );
   }
-}
-
-// Helper de responsive para este screen
-Widget _desktopWrap(BuildContext context, Widget child) {
-  if (!context.isDesktop) return child;
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: child,
-    ),
-  );
 }

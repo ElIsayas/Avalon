@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/cita.dart';
 import '../providers/citas_provider.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/layout/responsive.dart';
+import '../../../../core/utils/cita_ui_utils.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
 class CitaDetalleScreen extends ConsumerStatefulWidget {
@@ -42,14 +42,23 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
     setState(() => _cargandoAuditoria = true);
     try {
       final token = ref.read(currentUserProvider)?.sessionToken ?? '';
-      final res = await Supabase.instance.client
-          .rpc('get_auditoria_cita', params: {
-        'p_token':   token,
+      final res =
+          await Supabase.instance.client.rpc('get_auditoria_cita', params: {
+        'p_token': token,
         'p_cita_id': widget.cita.id,
       });
       setState(() {
         _auditoria = (res as List? ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
+            .map((item) => {
+                  ...item,
+                  'accion': item['accion']?.toString() ??
+                      item['cambio']?.toString() ??
+                      'â€”',
+                  'realizado_por': item['realizado_por']?.toString() ??
+                      item['usuario']?.toString() ??
+                      '',
+                })
             .toList();
         _cargandoAuditoria = false;
       });
@@ -58,13 +67,21 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
     }
   }
 
-  // Estados a los que se puede transicionar según el estado actual
+  // Estados a los que se puede transicionar segÃºn el estado actual
   List<EstadoCita> _estadosDisponibles(EstadoCita actual) {
     switch (actual) {
       case EstadoCita.agendada:
-        return [EstadoCita.confirmada, EstadoCita.cancelada, EstadoCita.reprogramada];
+        return [
+          EstadoCita.confirmada,
+          EstadoCita.cancelada,
+          EstadoCita.reprogramada
+        ];
       case EstadoCita.confirmada:
-        return [EstadoCita.enProgreso, EstadoCita.cancelada, EstadoCita.noAsistio];
+        return [
+          EstadoCita.enProgreso,
+          EstadoCita.cancelada,
+          EstadoCita.noAsistio
+        ];
       case EstadoCita.enProgreso:
         return [EstadoCita.completada, EstadoCita.noAsistio];
       default:
@@ -76,7 +93,8 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final puedeCambiarEstado = user?.isSecretaria == true ||
-        user?.isAdmin == true || user?.isSuperAdmin == true ||
+        user?.isAdmin == true ||
+        user?.isSuperAdmin == true ||
         user?.isPsicologo == true;
 
     // Leer cita actualizada del provider
@@ -100,7 +118,7 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
           tabs: const [
-            Tab(text: 'Información'),
+            Tab(text: 'InformaciÃ³n'),
             Tab(text: 'Historial'),
           ],
         ),
@@ -108,7 +126,7 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
       body: TabBarView(
         controller: _tabs,
         children: [
-          // ── Tab 1: Información ──────────────────────────────────────
+          // â”€â”€ Tab 1: InformaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           SingleChildScrollView(
             padding: EdgeInsets.all(20.r),
             child: Column(
@@ -125,16 +143,18 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
                 SizedBox(height: 16.h),
 
                 // Datos de la cita
-                _SeccionLabel('Datos de la cita'),
+                const _SeccionLabel('Datos de la cita'),
                 Card(
                   child: Padding(
                     padding: EdgeInsets.all(14.r),
                     child: Column(
                       children: [
-                        _Fila(Iconsax.calendar_2, 'Fecha y hora',
+                        _Fila(
+                            Iconsax.calendar_2,
+                            'Fecha y hora',
                             DateFormat('EEEE d \'de\' MMMM, HH:mm', 'es')
                                 .format(cita.fechaHora)),
-                        _Fila(Iconsax.timer_1, 'Duración',
+                        _Fila(Iconsax.timer_1, 'DuraciÃ³n',
                             '${cita.duracionMinutos} minutos'),
                         _Fila(Iconsax.document_text, 'Tipo',
                             cita.tipoSesion.label),
@@ -150,7 +170,7 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
                 SizedBox(height: 16.h),
 
                 // Personas
-                _SeccionLabel('Involucrados'),
+                const _SeccionLabel('Involucrados'),
                 Card(
                   child: Padding(
                     padding: EdgeInsets.all(14.r),
@@ -158,12 +178,12 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
                       children: [
                         _Fila(Iconsax.user, 'Paciente',
                             cita.pacienteNombre ?? cita.pacienteId),
-                        _Fila(Iconsax.people, 'Psicólogo/a',
+                        _Fila(Iconsax.people, 'PsicÃ³logo/a',
                             cita.psicologoNombre ?? cita.psicologoId),
                         _Fila(
                           Icons.verified_user_outlined,
                           'Confirmada por paciente',
-                          cita.confirmadoPaciente ? 'Sí ✓' : 'No',
+                          cita.confirmadoPaciente ? 'SÃ­ âœ“' : 'No',
                           valueColor: cita.confirmadoPaciente
                               ? AppTheme.accent
                               : AppTheme.textGrey,
@@ -176,13 +196,13 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
                 // Notas
                 if (cita.notas != null) ...[
                   SizedBox(height: 16.h),
-                  _SeccionLabel('Notas de la cita'),
+                  const _SeccionLabel('Notas de la cita'),
                   Card(
                     child: Padding(
                       padding: EdgeInsets.all(14.r),
                       child: Text(cita.notas!,
-                          style: GoogleFonts.inter(
-                              fontSize: 13.sp, height: 1.6)),
+                          style:
+                              GoogleFonts.inter(fontSize: 13.sp, height: 1.6)),
                     ),
                   ),
                 ],
@@ -192,7 +212,7 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
             ),
           ),
 
-          // ── Tab 2: Historial de cambios ─────────────────────────────
+          // â”€â”€ Tab 2: Historial de cambios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           _cargandoAuditoria
               ? const Center(child: CircularProgressIndicator())
               : _auditoria.isEmpty
@@ -206,8 +226,7 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
                           SizedBox(height: 12.h),
                           Text('Sin historial de cambios',
                               style: GoogleFonts.inter(
-                                  fontSize: 15.sp,
-                                  color: AppTheme.textGrey)),
+                                  fontSize: 15.sp, color: AppTheme.textGrey)),
                         ],
                       ),
                     )
@@ -224,22 +243,30 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
 
   Future<void> _cambiarEstado(
       BuildContext context, Cita cita, EstadoCita nuevo) async {
+    final messenger = ScaffoldMessenger.of(context);
     String? motivo;
+    DateTime? nuevaFechaHora;
     if (nuevo == EstadoCita.cancelada) {
-      motivo = await _pedirMotivo(context, 'Motivo de cancelación');
-      if (motivo == null) return; // canceló el diálogo
+      motivo = await _pedirMotivo(context, 'Motivo de cancelaciÃ³n');
+      if (motivo == null) return; // cancelÃ³ el diÃ¡logo
+    }
+    if (nuevo == EstadoCita.reprogramada) {
+      nuevaFechaHora = await _pedirFechaHoraReprogramacion(cita.fechaHora);
+      if (nuevaFechaHora == null) return;
     }
 
     await ref.read(citasProvider.notifier).actualizarCita(
           citaId: cita.id,
           estado: nuevo.value,
+          fechaHora: nuevaFechaHora,
           motivoCancelacion: motivo,
         );
     await _cargarAuditoria();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Estado actualizado a: ${_estadoLabel(nuevo)}'),
+      messenger.showSnackBar(SnackBar(
+        duration: const Duration(seconds: 5),
+        content: Text('Estado actualizado a: ${nuevo.label}'),
         backgroundColor: AppTheme.accent,
         behavior: SnackBarBehavior.floating,
       ));
@@ -255,8 +282,7 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
         content: TextField(
           controller: ctrl,
           maxLines: 3,
-          decoration: const InputDecoration(
-              hintText: 'Escribe el motivo...'),
+          decoration: const InputDecoration(hintText: 'Escribe el motivo...'),
         ),
         actions: [
           TextButton(
@@ -270,20 +296,28 @@ class _CitaDetalleScreenState extends ConsumerState<CitaDetalleScreen>
     );
   }
 
-  String _estadoLabel(EstadoCita e) {
-    switch (e) {
-      case EstadoCita.agendada:     return 'Agendada';
-      case EstadoCita.confirmada:   return 'Confirmada';
-      case EstadoCita.enProgreso:   return 'En progreso';
-      case EstadoCita.completada:   return 'Completada';
-      case EstadoCita.cancelada:    return 'Cancelada';
-      case EstadoCita.noAsistio:    return 'No asistió';
-      case EstadoCita.reprogramada: return 'Reprogramada';
-    }
+  Future<DateTime?> _pedirFechaHoraReprogramacion(
+    DateTime actual,
+  ) async {
+    final fecha = await showDatePicker(
+      context: context,
+      initialDate: actual,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (fecha == null || !mounted) return null;
+
+    final hora = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(actual),
+    );
+    if (hora == null) return null;
+
+    return DateTime(fecha.year, fecha.month, fecha.day, hora.hour, hora.minute);
   }
 }
 
-// ── WIDGETS ───────────────────────────────────────────────────────────────────
+// â”€â”€ WIDGETS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _EstadoCard extends StatelessWidget {
   final Cita cita;
@@ -298,17 +332,7 @@ class _EstadoCard extends StatelessWidget {
     required this.onCambiarEstado,
   });
 
-  Color get _color {
-    switch (cita.estado) {
-      case EstadoCita.agendada:     return AppTheme.warning;
-      case EstadoCita.confirmada:
-      case EstadoCita.enProgreso:   return AppTheme.accent;
-      case EstadoCita.completada:   return AppTheme.primary;
-      case EstadoCita.cancelada:
-      case EstadoCita.noAsistio:    return AppTheme.error;
-      case EstadoCita.reprogramada: return AppTheme.secondary;
-    }
-  }
+  Color get _color => cita.estado.color;
 
   @override
   Widget build(BuildContext context) {
@@ -327,7 +351,8 @@ class _EstadoCard extends StatelessWidget {
               Container(
                 width: 10.w,
                 height: 10.h,
-                decoration: BoxDecoration(color: _color, shape: BoxShape.circle),
+                decoration:
+                    BoxDecoration(color: _color, shape: BoxShape.circle),
               ),
               SizedBox(width: 8.w),
               Text(
@@ -361,7 +386,7 @@ class _EstadoCard extends StatelessWidget {
                       border: Border.all(color: c.withValues(alpha: 0.3)),
                     ),
                     child: Text(
-                      _estadoLabel(e),
+                      e.actionLabel,
                       style: GoogleFonts.inter(
                           fontSize: 12.sp,
                           color: c,
@@ -377,29 +402,7 @@ class _EstadoCard extends StatelessWidget {
     );
   }
 
-  Color _colorEstado(EstadoCita e) {
-    switch (e) {
-      case EstadoCita.confirmada:   return AppTheme.accent;
-      case EstadoCita.enProgreso:   return AppTheme.primary;
-      case EstadoCita.completada:   return AppTheme.primary;
-      case EstadoCita.cancelada:    return AppTheme.error;
-      case EstadoCita.noAsistio:    return AppTheme.error;
-      case EstadoCita.reprogramada: return AppTheme.secondary;
-      default:                      return AppTheme.textGrey;
-    }
-  }
-
-  String _estadoLabel(EstadoCita e) {
-    switch (e) {
-      case EstadoCita.confirmada:   return 'Confirmar';
-      case EstadoCita.enProgreso:   return 'Iniciar sesión';
-      case EstadoCita.completada:   return 'Completar';
-      case EstadoCita.cancelada:    return 'Cancelar';
-      case EstadoCita.noAsistio:    return 'No asistió';
-      case EstadoCita.reprogramada: return 'Reprogramar';
-      default:                      return e.value;
-    }
-  }
+  Color _colorEstado(EstadoCita e) => e.color;
 }
 
 class _AuditoriaItem extends StatelessWidget {
@@ -411,9 +414,9 @@ class _AuditoriaItem extends StatelessWidget {
     final fecha = data['fecha'] != null
         ? DateTime.tryParse(data['fecha'].toString())
         : null;
-    final cambio   = data['cambio']?.toString()    ?? data['accion']?.toString() ?? '—';
-    final usuario  = data['usuario']?.toString()   ?? data['realizado_por']?.toString() ?? '';
-    final estadoAntes  = data['estado_antes']?.toString();
+    final cambio = data['accion']?.toString() ?? 'â€”';
+    final usuario = data['realizado_por']?.toString() ?? '';
+    final estadoAntes = data['estado_antes']?.toString();
     final estadoDespues = data['estado_despues']?.toString();
 
     return Padding(
@@ -426,7 +429,7 @@ class _AuditoriaItem extends StatelessWidget {
             Container(
               width: 10.w,
               height: 10.h,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppTheme.primary,
                 shape: BoxShape.circle,
               ),
@@ -450,7 +453,7 @@ class _AuditoriaItem extends StatelessWidget {
                   ]),
                 SizedBox(height: 2.h),
                 Text(
-                  '${usuario.isNotEmpty ? '$usuario · ' : ''}${fecha != null ? DateFormat('dd/MM/yy HH:mm').format(fecha) : ''}',
+                  '${usuario.isNotEmpty ? '$usuario Â· ' : ''}${fecha != null ? DateFormat('dd/MM/yy HH:mm').format(fecha) : ''}',
                   style: GoogleFonts.inter(
                       fontSize: 11.sp, color: AppTheme.textGrey),
                 ),
@@ -521,15 +524,4 @@ class _Fila extends StatelessWidget {
           ),
         ]),
       );
-}
-
-// Helper de responsive para este screen
-Widget _desktopWrap(BuildContext context, Widget child) {
-  if (!context.isDesktop) return child;
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: child,
-    ),
-  );
 }

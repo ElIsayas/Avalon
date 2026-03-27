@@ -9,10 +9,13 @@ import '../providers/citas_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/i18n/app_strings.dart';
 import '../../../../core/layout/responsive.dart';
+import '../../../../core/utils/cita_ui_utils.dart';
+import '../../../../core/utils/string_utils.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../features/auth/domain/app_user.dart';
 import 'nueva_cita_screen.dart';
 import 'cita_detalle_screen.dart';
+import '../../../recordatorios/presentation/screens/recordatorios_screen.dart';
+import '../../../recordatorios/presentation/providers/recordatorios_provider.dart';
 
 class CitasScreen extends ConsumerStatefulWidget {
   const CitasScreen({super.key});
@@ -25,6 +28,7 @@ class _CitasScreenState extends ConsumerState<CitasScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
+  String _busqueda = '';
   String _estadoFiltro = 'todos';
 
   @override
@@ -47,10 +51,10 @@ class _CitasScreenState extends ConsumerState<CitasScreen>
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final citasState = ref.watch(citasProvider);
-    final recordatorios = ref.watch(recordatoriosProvider);
-    
-    final tieneRecordatoriosUrgentes = recordatorios
-        .any((r) => r.prioridad == PrioridadRecordatorio.urgente);
+    final recordatorios = ref.watch(recordatoriosExProvider).recordatorios;
+
+    final tieneRecordatoriosUrgentes =
+        recordatorios.any((r) => r.prioridad == 'urgente');
 
     return Scaffold(
       appBar: AppBar(
@@ -75,7 +79,8 @@ class _CitasScreenState extends ConsumerState<CitasScreen>
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const RecordatoriosScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const RecordatoriosScreen()),
                   );
                 },
                 icon: const Icon(Iconsax.notification),
@@ -102,7 +107,9 @@ class _CitasScreenState extends ConsumerState<CitasScreen>
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
           tabs: [
-            Tab(text: context.t.calendario, icon: const Icon(Icons.calendar_month)),
+            Tab(
+                text: context.t.calendario,
+                icon: const Icon(Icons.calendar_month)),
             Tab(text: context.t.lista, icon: const Icon(Icons.list)),
             Tab(text: context.t.psicologos, icon: const Icon(Icons.people)),
           ],
@@ -115,15 +122,17 @@ class _CitasScreenState extends ConsumerState<CitasScreen>
           _ListaTab(
             citasState: citasState,
             searchController: _searchController,
+            busqueda: _busqueda,
             estadoFiltro: _estadoFiltro,
+            onSearchChanged: (v) => setState(() => _busqueda = v),
             onEstadoChanged: (estado) => setState(() => _estadoFiltro = estado),
           ),
           _PsicologosTab(citasState: citasState),
         ],
       ),
-      floatingActionButton: (user?.isSecretaria == true || 
-                           user?.isAdmin == true || 
-                           user?.isSuperAdmin == true)
+      floatingActionButton: (user?.isSecretaria == true ||
+              user?.isAdmin == true ||
+              user?.isSuperAdmin == true)
           ? FloatingActionButton(
               onPressed: () {
                 Navigator.push(
@@ -234,8 +243,8 @@ class _CalendarioGrid extends StatelessWidget {
     // Dart weekday: 1=lun ... 7=dom. Para calendario Dom=0: 7%7=0, 1%7=1, etc.
     final primerDiaSemana = primerDiaMes.weekday % 7;
 
-    final dias = List.generate(42, (i) =>
-        primerDiaMes.add(Duration(days: i - primerDiaSemana)));
+    final dias = List.generate(
+        42, (i) => primerDiaMes.add(Duration(days: i - primerDiaSemana)));
 
     // Altura de celda adaptativa: en desktop más compacto, en mobile más alto
     final isDesktopView = MediaQuery.of(context).size.width > 600;
@@ -244,7 +253,7 @@ class _CalendarioGrid extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _DiasSemanaHeader(),
+        const _DiasSemanaHeader(),
         // 6 filas de 7 días — altura fija para que siempre se vea el mes completo
         ...List.generate(6, (fila) {
           return Row(
@@ -280,22 +289,24 @@ class _DiasSemanaHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dias = context.t.diasSemana;
-    
+
     return Row(
-      children: dias.map((dia) => Expanded(
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 8.h),
-          child: Text(
-            dia,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textGrey,
-            ),
-          ),
-        ),
-      )).toList(),
+      children: dias
+          .map((dia) => Expanded(
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Text(
+                    dia,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textGrey,
+                    ),
+                  ),
+                ),
+              ))
+          .toList(),
     );
   }
 }
@@ -315,7 +326,7 @@ class _DiaCalendario extends StatelessWidget {
   Widget build(BuildContext context) {
     final esHoy = _esHoy(dia);
     final citasMostrar = citas.take(2).toList();
-    
+
     return GestureDetector(
       onTap: citas.isNotEmpty ? () => _mostrarCitasDia(context, citas) : null,
       child: Container(
@@ -356,9 +367,9 @@ class _DiaCalendario extends StatelessWidget {
 
   bool _esHoy(DateTime dia) {
     final ahora = DateTime.now();
-    return dia.year == ahora.year && 
-           dia.month == ahora.month && 
-           dia.day == ahora.day;
+    return dia.year == ahora.year &&
+        dia.month == ahora.month &&
+        dia.day == ahora.day;
   }
 
   void _mostrarCitasDia(BuildContext context, List<Cita> citas) {
@@ -376,21 +387,8 @@ class _CitaIndicador extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    switch (cita.estado) {
-      case EstadoCita.confirmada:
-        color = AppTheme.accent;
-        break;
-      case EstadoCita.agendada:
-        color = AppTheme.warning;
-        break;
-      case EstadoCita.cancelada:
-        color = AppTheme.error;
-        break;
-      default:
-        color = AppTheme.primary;
-    }
-    
+    final color = cita.estado.color;
+
     return Container(
       width: 16.w,
       height: 2.h,
@@ -424,7 +422,17 @@ class _CitasDiaSheet extends StatelessWidget {
             ),
           ),
           SizedBox(height: 16.h),
-          ...citas.map((cita) => _CitaListItem(cita: cita)),
+          ...citas.map((cita) => _CitaListItem(
+                cita: cita,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => CitaDetalleScreen(cita: cita)),
+                  );
+                },
+              )),
         ],
       ),
     );
@@ -434,71 +442,102 @@ class _CitasDiaSheet extends StatelessWidget {
 class _ListaTab extends ConsumerWidget {
   final CitasState citasState;
   final TextEditingController searchController;
+  final String busqueda;
   final String estadoFiltro;
+  final ValueChanged<String> onSearchChanged;
   final Function(String) onEstadoChanged;
 
   const _ListaTab({
     required this.citasState,
     required this.searchController,
+    required this.busqueda,
     required this.estadoFiltro,
+    required this.onSearchChanged,
     required this.onEstadoChanged,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return _desktopWrap(context, Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.all(16.w),
-          child: Column(
-            children: [
-              TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  hintText: 'Buscar por paciente o psicólogo...',
-                  prefixIcon: const Icon(Icons.search),
-                ),
-              ),
-              SizedBox(height: 12.h),
-              DropdownButtonFormField<String>(
-                value: estadoFiltro,
-                decoration: InputDecoration(
-                  labelText: 'Filtrar por estado',
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'todos', child: Text('Todos')),
-                  DropdownMenuItem(value: 'agendada', child: Text('Agendada')),
-                  DropdownMenuItem(value: 'confirmada', child: Text('Confirmada')),
-                  DropdownMenuItem(value: 'en_progreso', child: Text('En Progreso')),
-                  DropdownMenuItem(value: 'completada', child: Text('Completada')),
-                  DropdownMenuItem(value: 'cancelada', child: Text('Cancelada')),
-                  DropdownMenuItem(value: 'no_asistio', child: Text('No Asistió')),
+    return desktopWrap(
+        context,
+        Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.all(16.w),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: searchController,
+                    onChanged: onSearchChanged,
+                    decoration: const InputDecoration(
+                      hintText: 'Buscar por paciente o psicólogo...',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  DropdownButtonFormField<String>(
+                    initialValue: estadoFiltro,
+                    decoration: const InputDecoration(
+                      labelText: 'Filtrar por estado',
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'todos', child: Text('Todos')),
+                      DropdownMenuItem(
+                          value: 'agendada', child: Text('Agendada')),
+                      DropdownMenuItem(
+                          value: 'confirmada', child: Text('Confirmada')),
+                      DropdownMenuItem(
+                          value: 'en_progreso', child: Text('En Progreso')),
+                      DropdownMenuItem(
+                          value: 'completada', child: Text('Completada')),
+                      DropdownMenuItem(
+                          value: 'cancelada', child: Text('Cancelada')),
+                      DropdownMenuItem(
+                          value: 'no_asistio', child: Text('No Asistió')),
+                    ],
+                    onChanged: (value) => onEstadoChanged(value ?? 'todos'),
+                  ),
                 ],
-                onChanged: (value) => onEstadoChanged(value ?? 'todos'),
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: citasState.cargando
-              ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  itemCount: citasState.citas.length,
-                  itemBuilder: (context, index) {
-                    final cita = citasState.citas[index];
-                    return _CitaListItem(cita: cita);
-                  },
-                ),
-        ),
-      ],
-    ));
+            ),
+            Expanded(
+              child: citasState.cargando
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      itemCount: _filtradas.length,
+                      itemBuilder: (context, index) {
+                        final cita = _filtradas[index];
+                        return _CitaListItem(cita: cita);
+                      },
+                    ),
+            ),
+          ],
+        ));
+  }
+
+  List<Cita> get _filtradas {
+    final q = busqueda.trim().toLowerCase();
+    final base = citasState.citas.isNotEmpty
+        ? citasState.citas
+        : {...citasState.citasHoy, ...citasState.citasSemana}.toList();
+    return base.where((c) {
+      final matchEstado =
+          estadoFiltro == 'todos' || c.estado.value == estadoFiltro;
+      if (!matchEstado) return false;
+      if (q.isEmpty) return true;
+      final paciente = (c.pacienteNombre ?? '').toLowerCase();
+      final psicologo = (c.psicologoNombre ?? '').toLowerCase();
+      final tipo = c.tipoSesion.label.toLowerCase();
+      return paciente.contains(q) || psicologo.contains(q) || tipo.contains(q);
+    }).toList();
   }
 }
 
 class _CitaListItem extends ConsumerWidget {
   final Cita cita;
+  final VoidCallback? onTap;
 
-  const _CitaListItem({required this.cita});
+  const _CitaListItem({required this.cita, this.onTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -508,28 +547,21 @@ class _CitaListItem extends ConsumerWidget {
         user?.isSuperAdmin == true;
 
     // Nombres reales o fallback legible
-    final nombrePaciente   = cita.pacienteNombre   ?? 'Paciente';
-    final nombrePsicologo  = cita.psicologoNombre  ?? 'Psicólogo';
+    final nombrePaciente = cita.pacienteNombre ?? 'Paciente';
+    final nombrePsicologo = cita.psicologoNombre ?? 'Psicólogo';
 
-    Color estadoColor;
-    switch (cita.estado) {
-      case EstadoCita.confirmada:
-      case EstadoCita.enProgreso:  estadoColor = AppTheme.accent;    break;
-      case EstadoCita.completada:  estadoColor = AppTheme.primary;   break;
-      case EstadoCita.cancelada:
-      case EstadoCita.noAsistio:   estadoColor = AppTheme.error;     break;
-      default:                     estadoColor = AppTheme.warning;
-    }
+    final estadoColor = cita.estado.color;
 
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
       child: InkWell(
         borderRadius: BorderRadius.circular(12.r),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => CitaDetalleScreen(cita: cita)),
-        ),
+        onTap: onTap ??
+            () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => CitaDetalleScreen(cita: cita)),
+                ),
         child: Padding(
           padding: EdgeInsets.all(14.r),
           child: Row(
@@ -591,7 +623,8 @@ class _CitaListItem extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   _EstadoChip(estado: cita.estado),
-                  if (puedeCancelar && cita.estado != EstadoCita.cancelada &&
+                  if (puedeCancelar &&
+                      cita.estado != EstadoCita.cancelada &&
                       cita.estado != EstadoCita.completada)
                     Padding(
                       padding: EdgeInsets.only(top: 4.h),
@@ -621,8 +654,7 @@ class _CitaListItem extends ConsumerWidget {
         content: const Text('¿Confirmas la cancelación de esta cita?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('No')),
+              onPressed: () => Navigator.pop(context), child: const Text('No')),
           TextButton(
             onPressed: () {
               ref.read(citasProvider.notifier).actualizarCita(
@@ -645,44 +677,13 @@ class _EstadoChip extends StatelessWidget {
 
   const _EstadoChip({required this.estado});
 
-  String _getEstadoLabel(EstadoCita estado) {
-    switch (estado) {
-      case EstadoCita.agendada: return 'Agendada';
-      case EstadoCita.confirmada: return 'Confirmada';
-      case EstadoCita.enProgreso: return 'En Progreso';
-      case EstadoCita.completada: return 'Completada';
-      case EstadoCita.cancelada: return 'Cancelada';
-      case EstadoCita.noAsistio: return 'No Asistió';
-      case EstadoCita.reprogramada: return 'Reprogramada';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    Color color = AppTheme.primary;
-    switch (estado) {
-      case EstadoCita.agendada:
-        color = AppTheme.warning;
-        break;
-      case EstadoCita.confirmada:
-      case EstadoCita.enProgreso:
-        color = AppTheme.accent;
-        break;
-      case EstadoCita.cancelada:
-      case EstadoCita.noAsistio:
-        color = AppTheme.error;
-        break;
-      case EstadoCita.completada:
-        color = AppTheme.primary;
-        break;
-      case EstadoCita.reprogramada:
-        color = AppTheme.secondary;
-        break;
-    }
-    
+    final color = estado.color;
+
     return Chip(
       label: Text(
-        _getEstadoLabel(estado),
+        estado.label,
         style: GoogleFonts.inter(fontSize: 10.sp),
       ),
       backgroundColor: color.withValues(alpha: 0.1),
@@ -699,21 +700,36 @@ class _PsicologosTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final disponibilidad = ref.watch(disponibilidadProvider);
-    
-    return _desktopWrap(context, ListView.builder(
-      itemCount: disponibilidad.length,
-      itemBuilder: (context, index) {
-        final psicologo = disponibilidad[index];
-        return _PsicologoCard(psicologo: psicologo);
-      },
-    ));
+
+    return desktopWrap(
+      context,
+      ListView.builder(
+        itemCount: disponibilidad.length,
+        itemBuilder: (context, index) {
+          final psicologo = disponibilidad[index];
+          return _PsicologoCard(
+            psicologo: psicologo,
+            onAgendar: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => NuevaCitaScreen(
+                  psicologoIdInicial: psicologo.psicologoId,
+                  psicologoNombreInicial: psicologo.nombre,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
 class _PsicologoCard extends StatelessWidget {
   final DisponibilidadPsicologo psicologo;
+  final VoidCallback onAgendar;
 
-  const _PsicologoCard({required this.psicologo});
+  const _PsicologoCard({required this.psicologo, required this.onAgendar});
 
   @override
   Widget build(BuildContext context) {
@@ -721,7 +737,8 @@ class _PsicologoCard extends StatelessWidget {
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: psicologo.estaDisponible ? AppTheme.accent : AppTheme.warning,
+          backgroundColor:
+              psicologo.estaDisponible ? AppTheme.accent : AppTheme.warning,
           child: Text(
             psicologo.nombre.iniciales,
             style: GoogleFonts.inter(
@@ -734,12 +751,13 @@ class _PsicologoCard extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (psicologo.especialidad != null)
-              Text(psicologo.especialidad!),
+            if (psicologo.especialidad != null) Text(psicologo.especialidad!),
             Text(
               psicologo.estaDisponible ? 'Disponible' : 'En sesión',
               style: GoogleFonts.inter(
-                color: psicologo.estaDisponible ? AppTheme.accent : AppTheme.warning,
+                color: psicologo.estaDisponible
+                    ? AppTheme.accent
+                    : AppTheme.warning,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -750,269 +768,27 @@ class _PsicologoCard extends StatelessWidget {
               ),
           ],
         ),
-        trailing: Container(
-          width: 12.w,
-          height: 12.h,
-          decoration: BoxDecoration(
-            color: psicologo.estaDisponible ? AppTheme.accent : AppTheme.warning,
-            shape: BoxShape.circle,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-extension on String {
-  String get iniciales {
-    final partes = trim().split(' ');
-    if (partes.length >= 2) return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
-    return substring(0, length >= 2 ? 2 : 1).toUpperCase();
-  }
-}
-
-class RecordatoriosScreen extends ConsumerWidget {
-  const RecordatoriosScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final recordatorios = ref.watch(recordatoriosProvider);
-    final user = ref.watch(currentUserProvider);
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Recordatorios'),
-        backgroundColor: AppTheme.primary,
-        foregroundColor: Colors.white,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: recordatorios.isEmpty
-                ? Center(
-                    child: Text(
-                      'No hay recordatorios activos',
-                      style: GoogleFonts.inter(color: AppTheme.textGrey),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: recordatorios.length,
-                    itemBuilder: (context, index) {
-                      final recordatorio = recordatorios[index];
-                      return _RecordatorioCard(
-                        recordatorio: recordatorio,
-                        user: ref.read(currentUserProvider)!,
-                        onResolver: () => ref.read(citasProvider.notifier).resolverRecordatorio(recordatorio.id),
-                        onEliminar: () {
-                          final user = ref.read(currentUserProvider);
-                          if ((user?.isAdmin == true) || (user?.isSuperAdmin == true)) {
-                            ref.read(citasProvider.notifier).eliminarRecordatorio(recordatorio.id);
-                          }
-                        },
-                      );
-                    },
-                  ),
-          ),
-          if ((user?.isPsicologo == true) || (user?.isAdmin == true) || (user?.isSuperAdmin == true))
-            _CrearRecordatorioForm(
-              onCrear: (titulo, descripcion, prioridad) {
-                ref.read(citasProvider.notifier).crearRecordatorio(
-                  titulo: titulo,
-                  descripcion: descripcion,
-                  prioridad: prioridad,
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecordatorioCard extends StatelessWidget {
-  final Recordatorio recordatorio;
-  final AppUser user;
-  final VoidCallback onResolver;
-  final VoidCallback? onEliminar;
-
-  const _RecordatorioCard({
-    required this.recordatorio,
-    required this.user,
-    required this.onResolver,
-    this.onEliminar,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Color color;
-    switch (recordatorio.prioridad) {
-      case PrioridadRecordatorio.urgente:
-        color = AppTheme.error;
-        break;
-      case PrioridadRecordatorio.normal:
-        color = AppTheme.primary;
-        break;
-      case PrioridadRecordatorio.baja:
-        color = AppTheme.accent;
-        break;
-    }
-    
-    return Card(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      child: ListTile(
-        leading: Container(
-          width: 12.w,
-          height: 12.h,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        title: Text(recordatorio.titulo),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (recordatorio.descripcion != null) Text(recordatorio.descripcion!),
-            Text(
-              'Creado por ${recordatorio.creadoPor} • ${_tiempoRelativo(recordatorio.fechaRegistro)}',
-              style: GoogleFonts.inter(fontSize: 12.sp, color: AppTheme.textGrey),
+            Container(
+              width: 10.w,
+              height: 10.h,
+              decoration: BoxDecoration(
+                color: psicologo.estaDisponible
+                    ? AppTheme.accent
+                    : AppTheme.warning,
+                shape: BoxShape.circle,
+              ),
             ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (user.isPsicologo || user.isAdmin || user.isSuperAdmin)
-              IconButton(
-                onPressed: onResolver,
-                icon: const Icon(Icons.check, color: AppTheme.accent),
-              ),
-            if (onEliminar != null)
-              IconButton(
-                onPressed: onEliminar,
-                icon: const Icon(Icons.delete, color: AppTheme.error),
-              ),
+            SizedBox(height: 6.h),
+            TextButton(
+              onPressed: onAgendar,
+              child: const Text('Agendar'),
+            ),
           ],
         ),
       ),
     );
   }
-
-  String _tiempoRelativo(DateTime fecha) {
-    final ahora = DateTime.now();
-    final diferencia = ahora.difference(fecha);
-    
-    if (diferencia.inDays > 0) return 'Hace ${diferencia.inDays} días';
-    if (diferencia.inHours > 0) return 'Hace ${diferencia.inHours} horas';
-    if (diferencia.inMinutes > 0) return 'Hace ${diferencia.inMinutes} minutos';
-    return 'Hace unos momentos';
-  }
-}
-
-class _CrearRecordatorioForm extends StatefulWidget {
-  final Function(String titulo, String? descripcion, String prioridad) onCrear;
-
-  const _CrearRecordatorioForm({required this.onCrear});
-
-  @override
-  State<_CrearRecordatorioForm> createState() => _CrearRecordatorioFormState();
-}
-
-class _CrearRecordatorioFormState extends State<_CrearRecordatorioForm> {
-  final _tituloController = TextEditingController();
-  final _descripcionController = TextEditingController();
-  String _prioridad = 'normal';
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Nuevo Recordatorio',
-            style: GoogleFonts.inter(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: 12.h),
-          TextField(
-            controller: _tituloController,
-            decoration: InputDecoration(
-              labelText: 'Título *',
-            ),
-          ),
-          SizedBox(height: 8.h),
-          TextField(
-            controller: _descripcionController,
-            decoration: InputDecoration(
-              labelText: 'Descripción (opcional)',
-            ),
-            maxLines: 2,
-          ),
-          SizedBox(height: 8.h),
-          DropdownButtonFormField<String>(
-            value: _prioridad,
-            decoration: InputDecoration(
-              labelText: 'Prioridad',
-            ),
-            items: const [
-              DropdownMenuItem(value: 'baja', child: Text('Baja')),
-              DropdownMenuItem(value: 'normal', child: Text('Normal')),
-              DropdownMenuItem(value: 'urgente', child: Text('Urgente')),
-            ],
-            onChanged: (value) => setState(() => _prioridad = value!),
-          ),
-          SizedBox(height: 12.h),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _tituloController.text.isNotEmpty
-                  ? () {
-                      widget.onCrear(
-                        _tituloController.text,
-                        _descripcionController.text.isEmpty ? null : _descripcionController.text,
-                        _prioridad,
-                      );
-                      _tituloController.clear();
-                      _descripcionController.clear();
-                      setState(() => _prioridad = 'normal');
-                    }
-                  : null,
-              child: const Text('Agregar'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _tituloController.dispose();
-    _descripcionController.dispose();
-    super.dispose();
-  }
-}
-
-Widget _desktopWrap(BuildContext context, Widget child) {
-  if (!context.isDesktop) return child;
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: child,
-    ),
-  );
 }

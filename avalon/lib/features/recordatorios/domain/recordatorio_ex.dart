@@ -26,7 +26,7 @@ class RecordatorioEx {
   final String id;
   final String organizacionId;
   final String creadoPor;
-  final String? asignadoA;     // null = visible para todos
+  final String? asignadoA; // null = visible para todos
   final String titulo;
   final String? descripcion;
   final String prioridad;
@@ -55,24 +55,23 @@ class RecordatorioEx {
   });
 
   factory RecordatorioEx.fromJson(Map<String, dynamic> j) => RecordatorioEx(
-        id:                j['id'].toString(),
-        organizacionId:    j['organizacion_id'].toString(),
-        creadoPor:         j['creado_por'].toString(),
-        asignadoA:         j['asignado_a']?.toString(),
-        titulo:            j['titulo'].toString(),
-        descripcion:       j['descripcion']?.toString(),
-        prioridad:         j['prioridad']?.toString() ?? 'normal',
-        categoria:         CategoriaRecordatorio.fromString(
-                              j['categoria']?.toString() ?? 'tarea'),
-        resuelto:          j['resuelto'] as bool? ?? false,
-        fechaVencimiento:  j['fecha_vencimiento'] != null
+        id: j['id'].toString(),
+        organizacionId: j['organizacion_id'].toString(),
+        creadoPor: j['creado_por'].toString(),
+        asignadoA: j['asignado_a']?.toString(),
+        titulo: j['titulo'].toString(),
+        descripcion: j['descripcion']?.toString(),
+        prioridad: j['prioridad']?.toString() ?? 'normal',
+        categoria: CategoriaRecordatorio.fromString(
+            j['categoria']?.toString() ?? 'tarea'),
+        resuelto: j['resuelto'] as bool? ?? false,
+        fechaVencimiento: j['fecha_vencimiento'] != null
             ? DateTime.tryParse(j['fecha_vencimiento'].toString())
             : null,
-        fechaRegistro:     DateTime.tryParse(
-                              j['fecha_registro'].toString()) ??
-                           DateTime.now(),
-        creadoPorNombre:   j['creado_por_nombre']?.toString(),
-        asignadoANombre:   j['asignado_a_nombre']?.toString(),
+        fechaRegistro:
+            DateTime.tryParse(j['fecha_registro'].toString()) ?? DateTime.now(),
+        creadoPorNombre: j['creado_por_nombre']?.toString(),
+        asignadoANombre: j['asignado_a_nombre']?.toString(),
       );
 
   bool get estaVencido =>
@@ -84,24 +83,28 @@ class RecordatorioEx {
     if (fechaVencimiento == null) return false;
     final ahora = DateTime.now();
     final v = fechaVencimiento!;
-    return v.year == ahora.year &&
-        v.month == ahora.month &&
-        v.day == ahora.day;
+    return v.year == ahora.year && v.month == ahora.month && v.day == ahora.day;
   }
 
   Color get prioridadColor {
     switch (prioridad) {
-      case 'urgente': return Color(0xFFE74C3C);
-      case 'normal':  return Color(0xFF1E5AA8);
-      default:        return Color(0xFF2ECC71);
+      case 'urgente':
+        return const Color(0xFFE74C3C);
+      case 'normal':
+        return const Color(0xFF1E5AA8);
+      default:
+        return const Color(0xFF2ECC71);
     }
   }
 
   String get prioridadLabel {
     switch (prioridad) {
-      case 'urgente': return 'Urgente';
-      case 'normal':  return 'Normal';
-      default:        return 'Baja';
+      case 'urgente':
+        return 'Urgente';
+      case 'normal':
+        return 'Normal';
+      default:
+        return 'Baja';
     }
   }
 }

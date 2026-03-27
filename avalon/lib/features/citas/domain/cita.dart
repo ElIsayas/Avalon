@@ -58,22 +58,6 @@ enum TipoSesion {
   String toDb() => value;
 }
 
-enum PrioridadRecordatorio {
-  baja('baja'),
-  normal('normal'),
-  urgente('urgente');
-
-  const PrioridadRecordatorio(this.value);
-  final String value;
-
-  static PrioridadRecordatorio fromString(String value) {
-    return PrioridadRecordatorio.values.firstWhere(
-      (prioridad) => prioridad.value == value,
-      orElse: () => PrioridadRecordatorio.normal,
-    );
-  }
-}
-
 class Cita {
   final String id;
   final String pacienteId;
@@ -119,26 +103,37 @@ class Cita {
   });
 
   factory Cita.fromJson(Map<String, dynamic> json) {
+    final fechaHoraParseada =
+        DateTime.tryParse(json['fecha_hora'].toString())?.toLocal() ??
+            DateTime.now();
+    final fechaActualizacionParseada =
+        DateTime.tryParse(json['fecha_actualizacion'].toString())?.toLocal() ??
+            DateTime.now();
+    final fechaCreacionParseada =
+        DateTime.tryParse(json['fecha_creacion'].toString())?.toLocal() ??
+            DateTime.now();
     return Cita(
       id: json['id']?.toString() ?? '',
       pacienteId: json['paciente_id']?.toString() ?? '',
       psicologoId: json['psicologo_id']?.toString() ?? '',
-      fechaHora: DateTime.tryParse(json['fecha_hora'].toString()) ?? DateTime.now(),
+      fechaHora: fechaHoraParseada,
       duracionMinutos: json['duracion_minutos'] as int? ?? 50,
-      tipoSesion: TipoSesion.fromString(json['tipo_sesion']?.toString() ?? 'seguimiento'),
+      tipoSesion: TipoSesion.fromString(
+          json['tipo_sesion']?.toString() ?? 'seguimiento'),
       estado: EstadoCita.fromString(json['estado']?.toString() ?? 'agendada'),
-      modalidad: ModalidadCita.fromString(json['modalidad']?.toString() ?? 'presencial'),
+      modalidad: ModalidadCita.fromString(
+          json['modalidad']?.toString() ?? 'presencial'),
       motivoConsulta: json['motivo_consulta']?.toString(),
       notas: json['notas']?.toString(),
       creadoPor: json['creado_por']?.toString(),
       organizacionId: json['organizacion_id']?.toString(),
       tokenConfirmacion: json['token_confirmacion']?.toString(),
       confirmadoPaciente: json['confirmado_paciente'] as bool? ?? false,
-      eliminadoEn: json['eliminado_en'] != null 
-          ? DateTime.tryParse(json['eliminado_en'].toString()) 
+      eliminadoEn: json['eliminado_en'] != null
+          ? DateTime.tryParse(json['eliminado_en'].toString())?.toLocal()
           : null,
-      fechaActualizacion: DateTime.tryParse(json['fecha_actualizacion'].toString()) ?? DateTime.now(),
-      fechaCreacion: DateTime.tryParse(json['fecha_creacion'].toString()) ?? DateTime.now(),
+      fechaActualizacion: fechaActualizacionParseada,
+      fechaCreacion: fechaCreacionParseada,
       // Nombres del JOIN (vista_citas_completa / get_citas enriquecido)
       pacienteNombre: json['paciente_nombre']?.toString(),
       psicologoNombre: json['psicologo_nombre']?.toString(),
@@ -216,107 +211,43 @@ class Cita {
 
   String get estadoLabel {
     switch (estado) {
-      case EstadoCita.agendada: return 'Agendada';
-      case EstadoCita.confirmada: return 'Confirmada';
-      case EstadoCita.enProgreso: return 'En Progreso';
-      case EstadoCita.completada: return 'Completada';
-      case EstadoCita.cancelada: return 'Cancelada';
-      case EstadoCita.noAsistio: return 'No Asistió';
-      case EstadoCita.reprogramada: return 'Reprogramada';
+      case EstadoCita.agendada:
+        return 'Agendada';
+      case EstadoCita.confirmada:
+        return 'Confirmada';
+      case EstadoCita.enProgreso:
+        return 'En Progreso';
+      case EstadoCita.completada:
+        return 'Completada';
+      case EstadoCita.cancelada:
+        return 'Cancelada';
+      case EstadoCita.noAsistio:
+        return 'No Asistió';
+      case EstadoCita.reprogramada:
+        return 'Reprogramada';
     }
   }
 
   bool get esHoy {
     final ahora = DateTime.now();
-    return fechaHora.year == ahora.year && 
-           fechaHora.month == ahora.month && 
-           fechaHora.day == ahora.day;
+    return fechaHora.year == ahora.year &&
+        fechaHora.month == ahora.month &&
+        fechaHora.day == ahora.day;
   }
 
   bool get estaPasandoAhora {
     final ahora = DateTime.now();
     final fin = fechaHora.add(Duration(minutes: duracionMinutos));
-    return ahora.isAfter(fechaHora.subtract(const Duration(minutes: 5))) && 
-           ahora.isBefore(fin);
-  }
-}
-
-class Recordatorio {
-  final String id;
-  final String organizacionId;
-  final String creadoPor;
-  final String titulo;
-  final String? descripcion;
-  final PrioridadRecordatorio prioridad;
-  final bool resuelto;
-  final DateTime fechaRegistro;
-
-  const Recordatorio({
-    required this.id,
-    required this.organizacionId,
-    required this.creadoPor,
-    required this.titulo,
-    this.descripcion,
-    required this.prioridad,
-    this.resuelto = false,
-    required this.fechaRegistro,
-  });
-
-  factory Recordatorio.fromJson(Map<String, dynamic> json) {
-    return Recordatorio(
-      id: json['id']?.toString() ?? '',
-      organizacionId: json['organizacion_id']?.toString() ?? '',
-      creadoPor: json['creado_por']?.toString() ?? '',
-      titulo: json['titulo']?.toString() ?? '',
-      descripcion: json['descripcion']?.toString(),
-      prioridad: PrioridadRecordatorio.fromString(json['prioridad']?.toString() ?? 'normal'),
-      resuelto: json['resuelto'] as bool? ?? false,
-      fechaRegistro: DateTime.tryParse(json['fecha_registro'].toString()) ?? DateTime.now(),
-    );
+    return ahora.isAfter(fechaHora.subtract(const Duration(minutes: 5))) &&
+        ahora.isBefore(fin);
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'organizacion_id': organizacionId,
-      'creado_por': creadoPor,
-      'titulo': titulo,
-      'descripcion': descripcion,
-      'prioridad': prioridad.value,
-      'resuelto': resuelto,
-      'fecha_registro': fechaRegistro.toIso8601String(),
-    };
-  }
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is Cita && other.id == id);
 
-  Recordatorio copyWith({
-    String? id,
-    String? organizacionId,
-    String? creadoPor,
-    String? titulo,
-    String? descripcion,
-    PrioridadRecordatorio? prioridad,
-    bool? resuelto,
-    DateTime? fechaRegistro,
-  }) {
-    return Recordatorio(
-      id: id ?? this.id,
-      organizacionId: organizacionId ?? this.organizacionId,
-      creadoPor: creadoPor ?? this.creadoPor,
-      titulo: titulo ?? this.titulo,
-      descripcion: descripcion ?? this.descripcion,
-      prioridad: prioridad ?? this.prioridad,
-      resuelto: resuelto ?? this.resuelto,
-      fechaRegistro: fechaRegistro ?? this.fechaRegistro,
-    );
-  }
-
-  String get prioridadLabel {
-    switch (prioridad) {
-      case PrioridadRecordatorio.baja: return 'Baja';
-      case PrioridadRecordatorio.normal: return 'Normal';
-      case PrioridadRecordatorio.urgente: return 'Urgente';
-    }
-  }
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class DisponibilidadPsicologo {
@@ -342,8 +273,8 @@ class DisponibilidadPsicologo {
       nombre: json['nombre']?.toString() ?? '',
       especialidad: json['especialidad']?.toString(),
       estaDisponible: json['esta_disponible'] as bool? ?? true,
-      proximaCita: json['proxima_cita'] != null 
-          ? DateTime.tryParse(json['proxima_cita'].toString()) 
+      proximaCita: json['proxima_cita'] != null
+          ? DateTime.tryParse(json['proxima_cita'].toString())
           : null,
       estadoActual: json['estado_actual']?.toString(),
     );

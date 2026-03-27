@@ -6,14 +6,16 @@ import 'package:intl/intl.dart';
 import '../providers/citas_provider.dart';
 import '../../domain/cita.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/cita_ui_utils.dart';
 
 class WidgetCitasHoy extends ConsumerWidget {
   const WidgetCitasHoy({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final citasHoy = ref.watch(citasProvider.select((state) => state.citasHoy));
-    
+    final citasState = ref.watch(citasProvider);
+    final citasHoy = citasState.citasHoy;
+
     return Card(
       child: Padding(
         padding: EdgeInsets.all(16.w),
@@ -49,7 +51,21 @@ class WidgetCitasHoy extends ConsumerWidget {
               ],
             ),
             SizedBox(height: 12.h),
-            if (citasHoy.isEmpty)
+            if (citasState.cargando)
+              const Center(
+                  child: Padding(
+                padding: EdgeInsets.all(8),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ))
+            else if (citasState.error != null)
+              Text(
+                citasState.error!,
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  color: AppTheme.error,
+                ),
+              )
+            else if (citasHoy.isEmpty)
               Text(
                 'Sin citas programadas hoy',
                 style: GoogleFonts.inter(
@@ -89,6 +105,7 @@ class _CitaHoyItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final estadoColor = cita.estado.color;
     return Padding(
       padding: EdgeInsets.only(bottom: 8.h),
       child: Row(
@@ -97,7 +114,7 @@ class _CitaHoyItem extends StatelessWidget {
             width: 40.w,
             height: 40.h,
             decoration: BoxDecoration(
-              color: _getEstadoColor(cita.estado).withValues(alpha: 0.1),
+              color: estadoColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Center(
@@ -106,7 +123,7 @@ class _CitaHoyItem extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 10.sp,
                   fontWeight: FontWeight.w600,
-                  color: _getEstadoColor(cita.estado),
+                  color: estadoColor,
                 ),
               ),
             ),
@@ -139,23 +156,6 @@ class _CitaHoyItem extends StatelessWidget {
       ),
     );
   }
-
-  Color _getEstadoColor(EstadoCita estado) {
-    switch (estado) {
-      case EstadoCita.agendada:
-        return AppTheme.warning;
-      case EstadoCita.confirmada:
-      case EstadoCita.enProgreso:
-        return AppTheme.accent;
-      case EstadoCita.cancelada:
-      case EstadoCita.noAsistio:
-        return AppTheme.error;
-      case EstadoCita.completada:
-        return AppTheme.primary;
-      case EstadoCita.reprogramada:
-        return AppTheme.secondary;
-    }
-  }
 }
 
 class _EstadoChip extends StatelessWidget {
@@ -163,41 +163,10 @@ class _EstadoChip extends StatelessWidget {
 
   const _EstadoChip({required this.estado});
 
-  String _getEstadoLabel(EstadoCita estado) {
-    switch (estado) {
-      case EstadoCita.agendada: return 'Agendada';
-      case EstadoCita.confirmada: return 'Confirmada';
-      case EstadoCita.enProgreso: return 'En Progreso';
-      case EstadoCita.completada: return 'Completada';
-      case EstadoCita.cancelada: return 'Cancelada';
-      case EstadoCita.noAsistio: return 'No Asistió';
-      case EstadoCita.reprogramada: return 'Reprogramada';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    Color color = AppTheme.primary;
-    switch (estado) {
-      case EstadoCita.agendada:
-        color = AppTheme.warning;
-        break;
-      case EstadoCita.confirmada:
-      case EstadoCita.enProgreso:
-        color = AppTheme.accent;
-        break;
-      case EstadoCita.cancelada:
-      case EstadoCita.noAsistio:
-        color = AppTheme.error;
-        break;
-      case EstadoCita.completada:
-        color = AppTheme.primary;
-        break;
-      case EstadoCita.reprogramada:
-        color = AppTheme.secondary;
-        break;
-    }
-    
+    final color = estado.color;
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
       decoration: BoxDecoration(
@@ -205,7 +174,7 @@ class _EstadoChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(4.r),
       ),
       child: Text(
-        _getEstadoLabel(estado),
+        estado.label,
         style: GoogleFonts.inter(
           fontSize: 8.sp,
           fontWeight: FontWeight.w500,
